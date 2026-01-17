@@ -33,6 +33,11 @@ export default function Course() {
   const activeQuestion = quiz?.questions?.[quizIndex]
   const selectedChoice = activeQuestion ? responses[activeQuestion.id]?.value : null
 
+  const getChoiceText = (question, choiceId) => {
+    if (!question || !choiceId) return 'Unanswered'
+    return question.choices?.find((choice) => choice.id === choiceId)?.text || 'Unanswered'
+  }
+
   const handleNextQuiz = () => {
     if (!quiz?.questions?.length) return
     setShowAnswer(false)
@@ -52,6 +57,10 @@ export default function Course() {
         formData.append('topic', topicInput || course.title)
       } else if (file) {
         formData.append('file', file)
+        if (!topicInput) {
+          const name = file.name.replace(/\.[^.]+$/, '')
+          setTopicInput(name || 'Document')
+        }
       }
 
       const response = await fetch('/api/quizzes/generate', { method: 'POST', body: formData })
@@ -65,6 +74,7 @@ export default function Course() {
       setQuizIndex(0)
       setResponses({})
       setShowAnswer(false)
+      await fetchHistoryAndReport()
       setFile(null)
     } catch (err) {
       setError(err.message)
@@ -259,7 +269,14 @@ export default function Course() {
                     <input
                       type="file"
                       accept=".pdf,.docx"
-                      onChange={(event) => setFile(event.target.files?.[0] || null)}
+                      onChange={(event) => {
+                        const nextFile = event.target.files?.[0] || null
+                        setFile(nextFile)
+                        if (nextFile) {
+                          const name = nextFile.name.replace(/\.[^.]+$/, '')
+                          setTopicInput(name || 'Document')
+                        }
+                      }}
                       className="text-xs text-slate-500"
                     />
                   )}
@@ -275,7 +292,7 @@ export default function Course() {
               {error && <p className="mt-4 text-sm font-semibold text-red-500">{error}</p>}
 
               {!quiz && (
-                <div className="mt-10 rounded-3xl border border-dashed border-slate-200 bg-slate-50 p-10 text-center">
+                <div className="mt-10 rounded-3xl p-10 text-center">
                   <p className="text-base font-semibold text-slate-500">
                     Generate a new quiz to begin.
                   </p>
@@ -283,7 +300,13 @@ export default function Course() {
               )}
 
               {quiz && activeQuestion && (
-                <div className="mt-8">
+                <motion.div
+                  key={activeQuestion.id}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ type: 'spring', stiffness: 120, damping: 18 }}
+                  className="mt-8"
+                >
                   <div className="flex items-center justify-between">
                     <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Question</p>
                     <p className="text-xs font-semibold text-slate-400">
@@ -292,29 +315,44 @@ export default function Course() {
                   </div>
                   <h3 className="mt-4 text-2xl font-semibold text-ink">{activeQuestion.prompt}</h3>
                   <div className="mt-6 grid gap-3">
-                    {activeQuestion.choices.map((choice) => (
-                      <button
-                        key={choice.id}
-                        onClick={() =>
-                          setResponses((prev) => ({
-                            ...prev,
-                            [activeQuestion.id]: { value: choice.id },
-                          }))
-                        }
-                        className={`rounded-2xl border px-4 py-3 text-left text-sm font-semibold transition ${
-                          selectedChoice === choice.id
-                            ? 'border-slate-400 bg-slate-50'
-                            : 'border-slate-200 bg-white hover:-translate-y-0.5'
-                        }`}
-                      >
-                        {choice.text}
-                      </button>
-                    ))}
+                    {activeQuestion.choices.map((choice) => {
+                      const isSelected = selectedChoice === choice.id
+                      const isCorrect = choice.id === activeQuestion.answerKey?.value
+                      const shouldShow = showAnswer
+                      const isIncorrectSelected = shouldShow && isSelected && !isCorrect
+                      const isCorrectChoice = shouldShow && isCorrect
+                      const choiceClasses = shouldShow
+                        ? isCorrectChoice
+                          ? 'border-emerald-300 bg-emerald-50 text-emerald-900'
+                          : isIncorrectSelected
+                            ? 'border-rose-300 bg-rose-50 text-rose-900'
+                            : 'border-slate-200 bg-white text-slate-500'
+                        : isSelected
+                          ? 'border-slate-400 bg-slate-50'
+                          : 'border-slate-200 bg-white hover:-translate-y-0.5'
+                      return (
+                        <button
+                          key={choice.id}
+                          disabled={showAnswer}
+                          onClick={() =>
+                            setResponses((prev) => ({
+                              ...prev,
+                              [activeQuestion.id]: { value: choice.id },
+                            }))
+                          }
+                          className={`rounded-2xl border px-4 py-3 text-left text-sm font-semibold transition ${choiceClasses}`}
+                        >
+                          {choice.text}
+                        </button>
+                      )
+                    })}
                   </div>
                   <div className="mt-6 flex flex-wrap items-center gap-3">
-                    <PrimaryButton onClick={handleCheck} disabled={!selectedChoice || loading}>
-                      Check
-                    </PrimaryButton>
+                    {!showAnswer && (
+                      <PrimaryButton onClick={handleCheck} disabled={!selectedChoice || loading}>
+                        Check
+                      </PrimaryButton>
+                    )}
                     {showAnswer && quizIndex < quiz.questions.length - 1 && (
                       <SecondaryButton onClick={handleNextQuiz}>Next question</SecondaryButton>
                     )}
@@ -324,7 +362,12 @@ export default function Course() {
                       </SecondaryButton>
                     )}
                   </div>
-                </div>
+                  {result && (
+                    <div className="mt-8 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-600">
+                      Report card: {result.correct}/{result.total} • {result.percentage}%
+                    </div>
+                  )}
+                </motion.div>
               )}
             </div>
             <div className="space-y-6">
@@ -357,20 +400,56 @@ export default function Course() {
                   <p>Most missed topic: {report?.mostMissedTopic ?? '—'}</p>
                 </div>
               </div>
-              <div className="rounded-3xl border border-slate-100 bg-white p-6">
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Recent attempts</p>
-                <div className="mt-4 space-y-3">
-                  {history.length === 0 && (
-                    <p className="text-sm text-slate-500">No attempts yet.</p>
-                  )}
-                  {history.map((attempt) => (
-                    <div key={attempt.id} className="flex items-center justify-between text-sm text-slate-600">
-                      <span>{attempt.topic}</span>
-                      <span>{attempt.result?.percentage ?? 0}%</span>
-                    </div>
-                  ))}
+              {(!quiz || result) && (
+                <div className="rounded-3xl border border-slate-100 bg-white p-6">
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Recent attempts</p>
+                  <div className="mt-4 space-y-4">
+                    {history.length === 0 && (
+                      <p className="text-sm text-slate-500">No attempts yet.</p>
+                    )}
+                    {history.map((attempt) => (
+                      <div key={attempt.id} className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                        <div className="flex items-center justify-between text-sm font-semibold text-slate-600">
+                          <span>{attempt.topic}</span>
+                          <span>{attempt.result?.percentage ?? 0}%</span>
+                        </div>
+                        <p className="mt-1 text-xs text-slate-400">
+                          {attempt.result?.correct ?? 0}/{attempt.result?.total ?? 0} correct
+                        </p>
+                        <details className="mt-3 text-sm text-slate-600">
+                          <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
+                            Review answers
+                          </summary>
+                          <div className="mt-3 space-y-3">
+                            {attempt.quiz?.questions?.map((question) => {
+                              const responseValue = attempt.responses?.[question.id]?.value ?? null
+                              const correctValue = question.answerKey?.value ?? null
+                              const isCorrect = responseValue && responseValue === correctValue
+                              return (
+                                <div key={question.id} className="rounded-xl border border-slate-100 bg-white p-3">
+                                  <p className="text-sm font-semibold text-ink">{question.prompt}</p>
+                                  <p className="mt-2 text-xs font-semibold text-slate-400">
+                                    {isCorrect ? 'Correct' : 'Incorrect'}
+                                  </p>
+                                  <p className="mt-2 text-sm text-slate-600">
+                                    Your answer: {getChoiceText(question, responseValue)}
+                                  </p>
+                                  <p className="mt-1 text-sm text-slate-600">
+                                    Correct answer: {getChoiceText(question, correctValue)}
+                                  </p>
+                                  <p className="mt-2 text-xs text-slate-500">
+                                    Feedback: {question.explanation}
+                                  </p>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </details>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
         )}
