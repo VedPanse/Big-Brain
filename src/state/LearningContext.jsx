@@ -1,0 +1,80 @@
+import { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import { courseNodes } from '../data/mockCourse'
+
+const LearningContext = createContext(null)
+
+const STORAGE_KEY = 'big-brain-state'
+
+const emptyMastery = courseNodes.reduce((acc, node) => {
+  acc[node.title] = 0
+  return acc
+}, {})
+
+const defaultState = {
+  masteryMap: emptyMastery,
+  fingerprint: [],
+  answers: [],
+  currentNodeId: courseNodes[0]?.id || null,
+  diagnosticCompleted: false,
+}
+
+export function LearningProvider({ children }) {
+  const [state, setState] = useState(() => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY)
+      return stored ? { ...defaultState, ...JSON.parse(stored) } : defaultState
+    } catch {
+      return defaultState
+    }
+  })
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
+  }, [state])
+
+  const value = useMemo(() => {
+    const completeDiagnostic = ({ masteryMap, fingerprint, answers }) => {
+      setState((prev) => ({
+        ...prev,
+        masteryMap,
+        fingerprint,
+        answers,
+        diagnosticCompleted: true,
+      }))
+    }
+
+    const setCurrentNode = (nodeId) => {
+      setState((prev) => ({ ...prev, currentNodeId: nodeId }))
+    }
+
+    const updateMastery = (nodeTitle, nextScore) => {
+      setState((prev) => ({
+        ...prev,
+        masteryMap: { ...prev.masteryMap, [nodeTitle]: nextScore },
+      }))
+    }
+
+    const resetLearning = () => {
+      setState(defaultState)
+    }
+
+    return {
+      ...state,
+      courseNodes,
+      completeDiagnostic,
+      setCurrentNode,
+      updateMastery,
+      resetLearning,
+    }
+  }, [state])
+
+  return <LearningContext.Provider value={value}>{children}</LearningContext.Provider>
+}
+
+export function useLearning() {
+  const context = useContext(LearningContext)
+  if (!context) {
+    throw new Error('useLearning must be used within LearningProvider')
+  }
+  return context
+}

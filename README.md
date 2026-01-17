@@ -199,3 +199,22 @@ Big Brain was designed with:
 Big Brain doesn’t just answer questions.
 
 **It understands how you think — and teaches accordingly.**
+
+---
+
+## Getting Started
+
+```bash
+npm install
+npm run dev
+```
+
+Open the local URL printed in the terminal.
+
+## 1-Minute Demo Flow
+
+1. Land on **Onboarding** and start the diagnostic.
+2. Answer the three diagnostic prompts (MCQ, short text, sketch).
+3. Review the **Learning Graph** and open the recommended node.
+4. Explore the **Canvas** with the floating tools and inline hints.
+5. Tap **Start teach-back**, draw three steps, then complete validation.
