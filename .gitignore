@@ -24,3 +24,6 @@ dist-ssr
 *.sw?
 
 .env
+
+server/quiz_attempts.db
+server/tmp

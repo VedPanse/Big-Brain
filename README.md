@@ -15,6 +15,16 @@ Instead of passively answering questions, Big Brain **probes, corrects, and resh
 
 ---
 
+## Development
+
+1. Install deps: `npm install`
+2. Run app + API together: `npm run dev`
+3. Ensure `.env` in project root includes `OPENAI_QUIZ_API_KEY`.
+
+The API runs on `http://localhost:8000` and Vite proxies `/api`.
+
+---
+
 ## Why Big Brain?
 
 Most AI education tools:
@@ -218,3 +228,8 @@ Open the local URL printed in the terminal.
 3. Explore the **Course** tabs (Videos → Quizzes → Canvas).
 4. Open the **Fullscreen Canvas** for focused work.
 5. Optional: run the **Diagnostic** from the course page.
+
+## Local API
+
+The app runs a Node/Express backend on port 8000 with OpenAI-powered quiz generation.
+`npm run dev` starts both Vite and the API server.
