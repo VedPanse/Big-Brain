@@ -1,130 +1,50 @@
-import { useMemo, useRef, useState } from 'react'
+import { useMemo, useState } from 'react'
+import { Link, useParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { useNavigate, useParams } from 'react-router-dom'
 import CanvasBoard from '../components/CanvasBoard'
-import FloatingToolbar from '../components/FloatingToolbar'
-import BottomSheet from '../components/BottomSheet'
-import GlassCard from '../components/GlassCard'
-import PrimaryButton from '../components/PrimaryButton'
-import SecondaryButton from '../components/SecondaryButton'
-import TopBar from '../components/TopBar'
-import { useLearning } from '../state/LearningContext'
-
-const hintOptions = [
-  'Try labeling your axes.',
-  'What assumption is missing?',
-  'Where does the slope flatten?',
-]
+import CanvasToolbar from '../components/CanvasToolbar'
+import { courseStubs } from '../data/courseStubs'
 
 export default function Canvas() {
-  const { nodeId } = useParams()
-  const navigate = useNavigate()
-  const { courseNodes } = useLearning()
-  const node = courseNodes.find((item) => item.id === nodeId) || courseNodes[0]
+  const { topic } = useParams()
+  const course = courseStubs[topic] || courseStubs.calculus
   const [tool, setTool] = useState('pen')
-  const [sheetOpen, setSheetOpen] = useState(false)
-  const [hint, setHint] = useState(null)
-  const [overlays, setOverlays] = useState([])
-  const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 })
-  const hintTimer = useRef(null)
-
-  const handleToolChange = (next) => {
-    if (next === 'ask') {
-      setSheetOpen(true)
-      return
-    }
-    setTool(next)
-  }
-
-  const triggerHint = (position) => {
-    if (!position) return
-    if (hintTimer.current) clearTimeout(hintTimer.current)
-    const text = hintOptions[Math.floor(Math.random() * hintOptions.length)]
-    hintTimer.current = setTimeout(() => {
-      setHint({ text, ...position })
-      setTimeout(() => setHint(null), 2200)
-    }, 500)
-  }
-
-  const handleCheckWork = () => {
-    const { width, height } = canvasSize
-    const overlay = {
-      points: [width * 0.2, height * 0.6, width * 0.45, height * 0.3, width * 0.75, height * 0.55],
-      stroke: '#2f6bff',
-      width: 3,
-      opacity: 0.6,
-      dash: [6, 8],
-    }
-    setOverlays([overlay])
-    setSheetOpen(false)
-  }
-
-  const handleShowHint = () => {
-    setHint({ text: 'Try marking the point of inflection.', x: canvasSize.width * 0.6, y: canvasSize.height * 0.45 })
-    setSheetOpen(false)
-  }
-
-  const hintPosition = useMemo(() => {
-    if (!hint) return null
-    return { left: hint.x, top: hint.y }
-  }, [hint])
+  const [resetSignal, setResetSignal] = useState(0)
+  const storageKey = useMemo(() => `canvas-${topic}-fullscreen`, [topic])
 
   return (
-    <div className="relative flex min-h-screen flex-col">
-      <TopBar title={node.title} subtitle="Canvas" />
-
-      <div className="relative flex flex-1">
-        <div className="relative flex-1">
-          <CanvasBoard
-            tool={tool}
-            overlays={overlays}
-            onPointerPause={triggerHint}
-            onSizeChange={setCanvasSize}
+    <div className="min-h-screen bg-white">
+      <div className="border-b border-slate-100 bg-white/80 backdrop-blur-md">
+        <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Canvas</p>
+            <h1 className="text-2xl font-semibold text-ink">{course.title}</h1>
+          </div>
+          <Link to={`/course/${topic}`} className="text-sm font-semibold text-slate-500 hover:text-slate-700">
+            Back to course
+          </Link>
+        </div>
+      </div>
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ type: 'spring', stiffness: 120, damping: 18 }}
+        className="mx-auto w-full max-w-6xl px-6 py-10"
+      >
+        <div className="flex items-center justify-between">
+          <CanvasToolbar
+            activeTool={tool}
+            onChange={setTool}
+            onClear={() => setResetSignal((prev) => prev + 1)}
           />
-          {hint && (
-            <motion.div
-              className="absolute z-20 -translate-x-1/2 -translate-y-full rounded-2xl border border-white/60 bg-white/80 px-4 py-2 text-xs font-semibold text-slate-700 shadow-md"
-              style={hintPosition}
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
-            >
-              {hint.text}
-            </motion.div>
-          )}
+          <p className="text-sm text-slate-500">Saved automatically for this topic.</p>
         </div>
-
-        <div className="absolute right-6 top-24 z-30">
-          <FloatingToolbar activeTool={tool} onChange={handleToolChange} />
-        </div>
-      </div>
-
-      <BottomSheet open={sheetOpen} onClose={() => setSheetOpen(false)}>
-        <div className="space-y-4">
-          <div>
-            <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Ask</p>
-            <h3 className="text-xl font-semibold text-slate-900">How should Big Brain respond?</h3>
+        <div className="mt-6 overflow-hidden rounded-3xl border border-slate-200 bg-white">
+          <div className="h-[70vh]">
+            <CanvasBoard tool={tool} storageKey={storageKey} resetSignal={resetSignal} />
           </div>
-          <GlassCard className="space-y-3">
-            <PrimaryButton onClick={handleCheckWork} className="w-full">
-              Check my work
-            </PrimaryButton>
-            <SecondaryButton onClick={handleShowHint} className="w-full">
-              Show a hint
-            </SecondaryButton>
-          </GlassCard>
         </div>
-      </BottomSheet>
-
-      <div className="absolute bottom-6 left-6 z-30">
-        <GlassCard className="flex items-center gap-4 px-5 py-4">
-          <div>
-            <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Next</p>
-            <p className="text-sm font-semibold text-slate-700">Teach-back session</p>
-          </div>
-          <PrimaryButton onClick={() => navigate(`/teach/${node.id}`)}>Start teach-back</PrimaryButton>
-        </GlassCard>
-      </div>
+      </motion.div>
     </div>
   )
 }

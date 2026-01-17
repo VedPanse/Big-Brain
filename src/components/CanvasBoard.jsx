@@ -13,6 +13,8 @@ export default function CanvasBoard({
   overlays = [],
   onPointerPause,
   onSizeChange,
+  storageKey,
+  resetSignal,
 }) {
   const containerRef = useRef(null)
   const stageRef = useRef(null)
@@ -21,6 +23,28 @@ export default function CanvasBoard({
   const linesRef = useRef([])
   const [texts, setTexts] = useState([])
   const [isDrawing, setIsDrawing] = useState(false)
+
+  useEffect(() => {
+    if (!storageKey) return
+    try {
+      const stored = JSON.parse(localStorage.getItem(storageKey))
+      if (stored?.lines) setLines(stored.lines)
+      if (stored?.texts) setTexts(stored.texts)
+    } catch {
+      // ignore storage errors
+    }
+  }, [storageKey])
+
+  useEffect(() => {
+    if (!storageKey) return
+    localStorage.setItem(storageKey, JSON.stringify({ lines, texts }))
+  }, [lines, texts, storageKey])
+
+  useEffect(() => {
+    if (!resetSignal) return
+    setLines([])
+    setTexts([])
+  }, [resetSignal])
 
   useEffect(() => {
     linesRef.current = lines

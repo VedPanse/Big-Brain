@@ -3,19 +3,35 @@ export default {
   theme: {
     extend: {
       colors: {
-        accent: '#2f6bff',
-        mist: '#f5f6f8',
+        accent: '#2563eb',
+        ink: '#111111',
+        ash: '#6b7280',
+        cloud: '#fafafa',
       },
       fontFamily: {
-        display: ['"Avenir Next"', '"SF Pro Display"', '"Helvetica Neue"', 'sans-serif'],
-        body: ['"Avenir Next"', '"SF Pro Text"', '"Helvetica Neue"', 'sans-serif'],
+        display: [
+          'ui-sans-serif',
+          'system-ui',
+          '-apple-system',
+          'BlinkMacSystemFont',
+          '"SF Pro Display"',
+          '"SF Pro Text"',
+          '"Helvetica Neue"',
+          'Arial',
+        ],
+        body: [
+          'ui-sans-serif',
+          'system-ui',
+          '-apple-system',
+          'BlinkMacSystemFont',
+          '"SF Pro Text"',
+          '"Helvetica Neue"',
+          'Arial',
+        ],
       },
       boxShadow: {
-        glass: '0 20px 50px rgba(15, 23, 42, 0.08)',
-        float: '0 16px 30px rgba(15, 23, 42, 0.12)',
-      },
-      backdropBlur: {
-        glass: '30px',
+        soft: '0 20px 50px rgba(15, 23, 42, 0.08)',
+        lift: '0 10px 24px rgba(15, 23, 42, 0.08)',
       },
     },
   },

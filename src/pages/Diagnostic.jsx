@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import GlassCard from '../components/GlassCard'
+import NavBar from '../components/NavBar'
 import PrimaryButton from '../components/PrimaryButton'
 import ProgressDots from '../components/ProgressDots'
 import CanvasBoard from '../components/CanvasBoard'
@@ -40,72 +40,71 @@ export default function Diagnostic() {
       } else {
         const scored = scoreDiagnostic(nextAnswers)
         completeDiagnostic({ ...scored, answers: nextAnswers })
-        navigate('/graph')
+        navigate('/course/calculus')
       }
     }, 420)
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-6">
-      <motion.div
-        className="w-full max-w-xl"
-        initial={{ opacity: 0, y: 18 }}
+    <div className="min-h-screen bg-white">
+      <NavBar />
+      <motion.section
+        className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-6 py-16"
+        initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ type: 'spring', stiffness: 120, damping: 18 }}
       >
-        <GlassCard className="space-y-6">
-          <div className="space-y-2 text-center">
-            <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Diagnostic</p>
-            <h2 className="text-2xl font-semibold text-slate-900">{question.prompt}</h2>
-            <p className="text-sm text-slate-500">{message}</p>
-          </div>
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Optional diagnostic</p>
+          <h1 className="mt-3 text-3xl font-semibold text-ink md:text-4xl">{question.prompt}</h1>
+          <p className="mt-2 text-base text-slate-500">{message}</p>
+        </div>
 
-          {question.type === 'mcq' && (
-            <div className="grid gap-3">
-              {question.options.map((option) => (
-                <button
-                  key={option}
-                  onClick={() => advance(option)}
-                  className="rounded-2xl border border-white/50 bg-white/70 px-4 py-3 text-left text-sm font-medium text-slate-700 transition hover:-translate-y-0.5 hover:bg-white"
-                >
-                  {option}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {question.type === 'short' && (
-            <div className="space-y-4">
-              <input
-                value={shortAnswer}
-                onChange={(event) => setShortAnswer(event.target.value)}
-                placeholder={question.placeholder}
-                className="w-full rounded-2xl border border-white/50 bg-white/70 px-4 py-3 text-sm text-slate-700 shadow-sm outline-none transition focus:border-[color:var(--accent)]"
-              />
-              <PrimaryButton onClick={() => advance(shortAnswer || 'No response')} className="w-full">
-                Submit
-              </PrimaryButton>
-            </div>
-          )}
-
-          {question.type === 'sketch' && (
-            <div className="space-y-4">
-              <div className="h-56 overflow-hidden rounded-2xl border border-white/40 bg-white/40">
-                <CanvasBoard tool="pen" onStrokeComplete={() => setSketchSteps((prev) => prev + 1)} />
-              </div>
-              <PrimaryButton
-                onClick={() => advance(sketchSteps > 0 ? 'Sketch complete' : 'Sketch skipped')}
-                className="w-full"
+        {question.type === 'mcq' && (
+          <div className="grid gap-3">
+            {question.options.map((option) => (
+              <button
+                key={option}
+                onClick={() => advance(option)}
+                className="rounded-2xl border border-slate-200 bg-white px-4 py-4 text-left text-base font-semibold text-slate-700 transition hover:-translate-y-0.5"
               >
-                Continue
-              </PrimaryButton>
-            </div>
-          )}
+                {option}
+              </button>
+            ))}
+          </div>
+        )}
 
-          {note && <p className="text-center text-sm font-semibold text-slate-500">Noted.</p>}
-          <ProgressDots total={total} current={index} />
-        </GlassCard>
-      </motion.div>
+        {question.type === 'short' && (
+          <div className="space-y-4">
+            <input
+              value={shortAnswer}
+              onChange={(event) => setShortAnswer(event.target.value)}
+              placeholder={question.placeholder}
+              className="w-full rounded-2xl border border-slate-200 px-4 py-4 text-base text-slate-700 outline-none transition focus:border-slate-300"
+            />
+            <PrimaryButton onClick={() => advance(shortAnswer || 'No response')} className="w-full">
+              Submit
+            </PrimaryButton>
+          </div>
+        )}
+
+        {question.type === 'sketch' && (
+          <div className="space-y-4">
+            <div className="h-56 overflow-hidden rounded-2xl border border-slate-200 bg-white">
+              <CanvasBoard tool="pen" onStrokeComplete={() => setSketchSteps((prev) => prev + 1)} />
+            </div>
+            <PrimaryButton
+              onClick={() => advance(sketchSteps > 0 ? 'Sketch complete' : 'Sketch skipped')}
+              className="w-full"
+            >
+              Continue
+            </PrimaryButton>
+          </div>
+        )}
+
+        {note && <p className="text-center text-sm font-semibold text-slate-500">Noted.</p>}
+        <ProgressDots total={total} current={index} />
+      </motion.section>
     </div>
   )
 }

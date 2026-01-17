@@ -1,15 +1,15 @@
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
-import Onboarding from './pages/Onboarding'
-import Diagnostic from './pages/Diagnostic'
-import Graph from './pages/Graph'
+import Landing from './pages/Landing'
+import Learn from './pages/Learn'
+import Course from './pages/Course'
 import Canvas from './pages/Canvas'
-import TeachBack from './pages/TeachBack'
+import Diagnostic from './pages/Diagnostic'
 
 const pageVariants = {
-  initial: { opacity: 0, y: 12 },
+  initial: { opacity: 0, y: 8 },
   animate: { opacity: 1, y: 0 },
-  exit: { opacity: 0, y: -10 },
+  exit: { opacity: 0, y: -6 },
 }
 
 function PageTransition({ children }) {
@@ -20,7 +20,6 @@ function PageTransition({ children }) {
       animate="animate"
       exit="exit"
       transition={{ type: 'spring', stiffness: 120, damping: 18 }}
-      className="relative z-10"
     >
       {children}
     </motion.div>
@@ -38,7 +37,31 @@ function App() {
             path="/"
             element={
               <PageTransition>
-                <Onboarding />
+                <Landing />
+              </PageTransition>
+            }
+          />
+          <Route
+            path="/learn"
+            element={
+              <PageTransition>
+                <Learn />
+              </PageTransition>
+            }
+          />
+          <Route
+            path="/course/:topic"
+            element={
+              <PageTransition>
+                <Course />
+              </PageTransition>
+            }
+          />
+          <Route
+            path="/canvas/:topic"
+            element={
+              <PageTransition>
+                <Canvas />
               </PageTransition>
             }
           />
@@ -47,30 +70,6 @@ function App() {
             element={
               <PageTransition>
                 <Diagnostic />
-              </PageTransition>
-            }
-          />
-          <Route
-            path="/graph"
-            element={
-              <PageTransition>
-                <Graph />
-              </PageTransition>
-            }
-          />
-          <Route
-            path="/canvas/:nodeId"
-            element={
-              <PageTransition>
-                <Canvas />
-              </PageTransition>
-            }
-          />
-          <Route
-            path="/teach/:nodeId"
-            element={
-              <PageTransition>
-                <TeachBack />
               </PageTransition>
             }
           />

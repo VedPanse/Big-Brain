@@ -4,9 +4,11 @@
 
 :root {
   color-scheme: light;
-  --accent: #2f6bff;
-  --bg-start: #f5f6f8;
-  --bg-end: #ffffff;
+  --accent: #2563eb;
+  --text-primary: #111111;
+  --text-secondary: #6b7280;
+  --bg: #ffffff;
+  --bg-alt: #fafafa;
 }
 
 * {
@@ -15,10 +17,12 @@
 
 body {
   margin: 0;
-  font-family: "Avenir Next", "SF Pro Text", "Helvetica Neue", sans-serif;
-  color: #0f172a;
-  background: linear-gradient(145deg, var(--bg-start), var(--bg-end));
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Display",
+    "SF Pro Text", "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji";
+  color: var(--text-primary);
+  background: var(--bg);
   min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
 }
 
 #root {
@@ -26,47 +30,25 @@ body {
 }
 
 .app-shell {
-  position: relative;
   min-height: 100vh;
-  overflow: hidden;
-}
-
-.app-shell::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(circle at 20% 20%, rgba(47, 107, 255, 0.08), transparent 45%),
-    radial-gradient(circle at 80% 10%, rgba(148, 163, 184, 0.18), transparent 50%),
-    radial-gradient(circle at 10% 80%, rgba(148, 163, 184, 0.16), transparent 60%);
-  pointer-events: none;
-  z-index: 0;
-}
-
-.app-shell::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160" viewBox="0 0 160 160"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="1" stitchTiles="stitch"/></filter><rect width="160" height="160" filter="url(%23n)" opacity="0.04"/></svg>');
-  mix-blend-mode: soft-light;
-  pointer-events: none;
-  z-index: 0;
+  background: var(--bg);
 }
 
 @layer components {
   .glass-card {
-    @apply rounded-3xl border border-white/20 bg-white/60 shadow-glass backdrop-blur-glass;
+    @apply rounded-3xl border border-slate-200/70 bg-white shadow-sm;
   }
 
   .glass-surface {
-    @apply border border-white/20 bg-white/50 shadow-float backdrop-blur-glass;
+    @apply rounded-2xl border border-slate-200/70 bg-white/70 backdrop-blur-md;
   }
 
   .primary-btn {
-    @apply rounded-full bg-[color:var(--accent)] px-6 py-3 text-sm font-semibold text-white shadow-md transition;
+    @apply rounded-full bg-[color:var(--accent)] px-6 py-3 text-sm font-semibold text-white shadow-sm transition;
   }
 
   .secondary-btn {
-    @apply rounded-full border border-white/50 bg-white/60 px-5 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition;
+    @apply rounded-full border border-slate-200 px-5 py-2.5 text-sm font-semibold text-slate-700 transition;
   }
 }
 

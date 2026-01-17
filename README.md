@@ -213,8 +213,8 @@ Open the local URL printed in the terminal.
 
 ## 1-Minute Demo Flow
 
-1. Land on **Onboarding** and start the diagnostic.
-2. Answer the three diagnostic prompts (MCQ, short text, sketch).
-3. Review the **Learning Graph** and open the recommended node.
-4. Explore the **Canvas** with the floating tools and inline hints.
-5. Tap **Start teach-back**, draw three steps, then complete validation.
+1. Land on the **Landing** page and tap “Start learning”.
+2. Choose a topic on **/learn**.
+3. Explore the **Course** tabs (Videos → Quizzes → Canvas).
+4. Open the **Fullscreen Canvas** for focused work.
+5. Optional: run the **Diagnostic** from the course page.
