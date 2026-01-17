@@ -1,16 +1,201 @@
-# React + Vite
+# Big Brain
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+**An Agentic Learning OS that Understands How You Think**
 
-Currently, two official plugins are available:
+![NexHacks](https://img.shields.io/badge/NexHacks-2026-blue)
+![Track](https://img.shields.io/badge/Track-Education%20%26%20AGI-purple)
+![Status](https://img.shields.io/badge/Status-Prototype-orange)
+![UI/UX](https://img.shields.io/badge/Focus-High%20UI%2FUX%20Impact-green)
+![License](https://img.shields.io/badge/License-MIT-lightgrey)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+Big Brain is not a chatbot tutor.
+It is a **learning operating system** that builds a cognitive model of the learner, actively diagnoses misunderstandings, and adapts the learning path in real time using an interactive canvas.
 
-## React Compiler
+Instead of passively answering questions, Big Brain **probes, corrects, and reshapes understanding**.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+---
 
-## Expanding the ESLint configuration
+## Why Big Brain?
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+Most AI education tools:
+
+* generate explanations
+* quiz users
+* move on
+
+Big Brain does something fundamentally different:
+
+**It learns the learner.**
+
+Big Brain builds a *mental model* of the user’s strengths, weaknesses, misconceptions, and learning patterns — and uses that model to drive every lesson, quiz, and interaction.
+
+---
+
+## Core Features
+
+### 1. Adaptive Diagnostic Engine
+
+* Initial quizzes are **diagnostic**, not graded
+* Questions target:
+
+  * conceptual understanding
+  * prerequisite gaps
+  * common misconception patterns
+* Supports multiple formats:
+
+  * MCQs
+  * short explanations
+  * diagram labeling
+  * step-by-step reasoning
+
+**Output:**
+
+* Concept mastery map
+* False-confidence detection
+* Weak prerequisite identification
+
+---
+
+### 2. Personalized Learning Graph
+
+* Learning path is a **dynamic dependency graph**, not a static syllabus
+* Big Brain:
+
+  * prunes concepts the user already understands
+  * expands weak or fragile areas
+  * reorders lessons automatically as the user improves
+
+#### Smart Content Pulling
+
+* Matches each concept to:
+
+  * timestamped video segments
+  * short explanations from multiple sources
+* Chooses content based on:
+
+  * user’s learning style
+  * prior errors
+  * abstraction preference (visual vs symbolic)
+
+---
+
+### 3. Cognitive Fingerprint
+
+Big Brain continuously learns *how the user thinks*:
+
+* Error types (algebraic slip, intuition failure, overgeneralization)
+* Learning preferences inferred from interaction (not self-reported)
+* Retention decay and concept fragility
+* Patterns such as:
+
+  * “Struggles when variables are introduced”
+  * “Confuses definitions with applications”
+
+This profile powers **true personalization**, not generic AI responses.
+
+---
+
+### 4. Interactive Learning Canvas (Key Differentiator)
+
+Learning happens on a **canvas**, not in chat.
+
+Users can:
+
+* annotate diagrams
+* draw graphs
+* write partial solutions
+* highlight confusion points
+* cross out incorrect ideas
+
+Big Brain responds *directly* to canvas interactions:
+
+* Corrects faulty diagrams
+* Identifies incorrect reasoning steps
+* Zooms into highlighted concepts
+* Suggests targeted exercises
+
+This interaction model **cannot be replicated** in standard chat interfaces.
+
+---
+
+### 5. Teach-Back Mode (Signature Feature)
+
+Big Brain verifies understanding by asking the user to **teach the concept back**.
+
+* User explains on the canvas
+* AI:
+
+  * interrupts when logic breaks
+  * asks clarification questions
+  * challenges vague explanations
+* Concepts are marked “mastered” **only after successful teach-back**
+
+This ensures real learning, not surface-level correctness.
+
+---
+
+## End-to-End Learning Loop
+
+1. User selects a topic or course
+2. Big Brain runs diagnostic assessment
+3. Personalized learning graph is generated
+4. User learns via:
+
+   * canvas interactions
+   * micro-lessons
+   * targeted videos
+5. Continuous quizzes and feedback
+6. Teach-back validation
+7. Retention tracking and adaptive review
+
+No passive consumption. No dead ends.
+
+---
+
+## Why Not Just Use ChatGPT?
+
+| ChatGPT                     | Big Brain                    |
+| --------------------------- | ---------------------------- |
+| Reactive answers            | Proactive learning agent     |
+| Linear chat                 | Visual interactive canvas    |
+| Same output for everyone    | Personalized cognitive model |
+| No memory of misconceptions | Long-term learning profile   |
+| One-shot explanations       | Feedback-driven mastery      |
+
+---
+
+## Target Use Cases
+
+* College students learning technical subjects
+* Concept-heavy courses (CS, math, physics, ML)
+* Self-learners seeking actual mastery
+* Educators seeking diagnostic insights
+
+---
+
+## Built for NexHacks
+
+Big Brain was designed with:
+
+* High UI/UX impact via canvas-based learning
+* Visible intelligence through diagnostics and adaptation
+* Agentic behavior with feedback loops and teach-back
+* A future-of-learning vision aligned with AGI principles
+
+---
+
+## Future Extensions
+
+* Collaborative canvas sessions
+* Instructor dashboards
+* LMS integrations
+* Long-term learner memory across courses
+* AR and spatial learning modes
+
+---
+
+## Final Thought
+
+Big Brain doesn’t just answer questions.
+
+**It understands how you think — and teaches accordingly.**
