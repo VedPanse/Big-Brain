@@ -36,6 +36,10 @@ app.post('/api/quizzes/generate', upload.any(), async (req, res) => {
   const { topic, num_questions, difficulty } = req.body
   const files = Array.isArray(req.files) ? req.files : []
 
+  if (!apiKey) {
+    return res.status(500).json({ error: 'Missing OPENAI_QUIZ_API_KEY in .env.' })
+  }
+
   try {
     await fs.mkdir(tmpDir, { recursive: true })
 

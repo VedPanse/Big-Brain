@@ -80,25 +80,25 @@ export default function Learn() {
         transition={{ type: 'spring', stiffness: 120, damping: 18 }}
         className="mx-auto w-full max-w-6xl px-6 py-16"
       >
-        <div className="grid gap-6 lg:grid-cols-[1.1fr_0.4fr] lg:items-center">
+        <div className="space-y-6">
           <div className="space-y-6">
             <h1 className="text-4xl font-semibold tracking-[-0.02em] text-ink md:text-5xl">
               What do you want to learn?
             </h1>
-            <input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder="Search topics (e.g., derivatives, pointers, transformers) - Press Enter to search any topic"
-              className="w-full rounded-2xl border border-slate-200 px-5 py-4 text-base text-slate-700 outline-none transition focus:border-slate-300"
-            />
-          </div>
-          <div className="flex items-center justify-center lg:justify-end">
-            <img
-              src="/logo.png"
-              alt="Big Brain mascot"
-              className="w-32 max-w-full object-contain md:w-36"
-            />
+            <div className="relative">
+              <input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                onKeyPress={handleKeyPress}
+                placeholder="Search topics (e.g., derivatives, pointers, transformers) - Press Enter to search any topic"
+                className="w-full rounded-2xl border border-slate-200 px-5 py-4 text-base text-slate-700 outline-none transition focus:border-slate-300"
+              />
+              <img
+                src="/logo.png"
+                alt="Big Brain mascot"
+                className="pointer-events-none absolute -top-6 right-4 w-16 rotate-[-8deg] object-contain md:w-20"
+              />
+            </div>
           </div>
         </div>
 

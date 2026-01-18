@@ -61,6 +61,7 @@ export default function Course() {
   const [embedError, setEmbedError] = useState(false)
   const [loadingMessage, setLoadingMessage] = useState('')
   const [showConfetti, setShowConfetti] = useState(false)
+  const [numQuestions, setNumQuestions] = useState(5)
 
   const activeQuestion = quiz?.questions?.[quizIndex]
   const selectedChoice = activeQuestion ? responses[activeQuestion.id]?.value : null
@@ -166,7 +167,7 @@ export default function Course() {
     setResult(null)
     try {
       const formData = new FormData()
-      formData.append('num_questions', '5')
+      formData.append('num_questions', String(numQuestions))
       formData.append('difficulty', 'medium')
       formData.append('topic', resolvedTitle || course.title || topic)
 
@@ -232,7 +233,9 @@ export default function Course() {
       setLoadingMessage('Generating quiz questions...')
       const response = await fetch('/api/quizzes/generate', { method: 'POST', body: formData })
       if (!response.ok) {
-        const message = await response.json().catch(() => ({}))
+        const message = await response
+          .json()
+          .catch(async () => ({ error: await response.text() }))
         throw new Error(message.error || 'Unable to generate quiz.')
       }
 
@@ -324,7 +327,7 @@ export default function Course() {
       setQuizIndex(0)
       setResponses({})
       setShowAnswer(false)
-      setShowConfetti(true)
+      setShowConfetti(data.result?.percentage > 50)
       await fetchHistoryAndReport()
     } catch (err) {
       setError(err.message)
@@ -667,6 +670,22 @@ export default function Course() {
                 >
                   {loading ? (loadingMessage || 'Generating…') : 'Generate quiz'}
                 </PrimaryButton>
+                <div className="mt-3 flex items-center gap-3 text-xs text-slate-500">
+                  <label className="text-sm font-semibold text-slate-600">Questions</label>
+                  <input
+                    type="number"
+                    min="3"
+                    max="20"
+                    value={numQuestions}
+                    onChange={(event) => {
+                      const value = Number(event.target.value)
+                      if (Number.isNaN(value)) return
+                      setNumQuestions(Math.max(3, Math.min(20, value)))
+                    }}
+                    className="w-20 rounded-full border border-slate-200 px-3 py-1 text-sm text-slate-700"
+                  />
+                  <span>3–20</span>
+                </div>
               </div>
 
               {error && <p className="mt-4 text-sm font-semibold text-red-500">{error}</p>}
@@ -682,7 +701,7 @@ export default function Course() {
               {!quiz && result && (
                 <div className="relative mt-10 overflow-hidden rounded-3xl border border-slate-200 bg-white p-10 text-center shadow-sm">
                   {showConfetti && (
-                    <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-4xl">
+                    <div className="pointer-events-none absolute right-4 top-4 text-3xl">
                       🎉✨🎉
                     </div>
                   )}
