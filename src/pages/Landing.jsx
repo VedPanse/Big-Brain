@@ -46,10 +46,12 @@ export default function Landing() {
             </div>
           </div>
           <div className="flex items-center justify-center">
-            <img
+            <motion.img
               src="/logo.png"
               alt="Big Brain logo"
               className="w-full max-w-xs object-contain"
+              animate={{ y: [0, -9, 0], rotate: [0, 2, 0], scale: [1, 1.02, 1] }}
+              transition={{ duration: 7, repeat: Infinity, ease: 'easeInOut' }}
             />
           </div>
         </div>

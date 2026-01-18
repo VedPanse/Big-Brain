@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import NavBar from '../components/NavBar'
 import { topics } from '../data/topics'
 import { useLearning } from '../state/LearningContext'
+import CourseConceptGraph from '../components/CourseConceptGraph/CourseConceptGraph'
 
 const COURSE_STORAGE_KEY = 'bb-active-courses'
 
@@ -391,6 +392,10 @@ export default function Learn() {
             </div>
           </div>
         )}
+
+        <div className="mt-12">
+          <CourseConceptGraph />
+        </div>
       </motion.section>
     </div>
   )

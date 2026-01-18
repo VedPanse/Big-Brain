@@ -23,7 +23,7 @@ const normalizeChoices = (choices) => {
   return result.slice(0, 4)
 }
 
-const normalizeQuiz = (quiz) => {
+const normalizeQuiz = (quiz, context = {}) => {
   if (!quiz || typeof quiz !== 'object') {
     throw new Error('Quiz payload is not an object.')
   }
@@ -36,6 +36,13 @@ const normalizeQuiz = (quiz) => {
   const normalizedQuestions = questions.map((question, index) => {
     const choices = normalizeChoices(question?.choices)
     const answerValue = ensureString(question?.answerKey?.value, choices[0].id)
+    const primaryConceptId =
+      ensureString(question?.primaryConceptId, '') ||
+      context?.defaultConceptId ||
+      'general'
+    const secondaryConceptIds = Array.isArray(question?.secondaryConceptIds)
+      ? question.secondaryConceptIds.filter((id) => typeof id === 'string' && id !== primaryConceptId)
+      : []
 
     return {
       id: ensureString(question?.id, `q_${index + 1}`),
@@ -43,6 +50,11 @@ const normalizeQuiz = (quiz) => {
       choices,
       answerKey: { value: answerValue },
       explanation: ensureString(question?.explanation, 'Review the core idea for this question.'),
+      primaryConceptId,
+      secondaryConceptIds,
+      difficulty: typeof question?.difficulty === 'number' ? question.difficulty : 0.5,
+      isTransfer: Boolean(question?.isTransfer),
+      tags: Array.isArray(question?.tags) ? question.tags : [],
     }
   })
 
@@ -64,11 +76,24 @@ const parseQuizJson = (content) => {
   }
 }
 
-export async function generateQuiz({ apiKey, topic, sourceText, numQuestions, difficulty }) {
+export async function generateQuiz({
+  apiKey,
+  topic,
+  sourceText,
+  numQuestions,
+  difficulty,
+  courseId,
+  concepts = [],
+}) {
   const openai = new OpenAI({ apiKey })
   const focus = sourceText
     ? `Use the following document excerpt as the primary source:\n\n${sourceText.slice(0, 6000)}`
     : `Topic focus: ${topic}`
+  const conceptList = concepts.length
+    ? `Concept IDs (use ONLY these IDs):\n${concepts
+        .map((concept) => `- ${concept.id}: ${concept.label}`)
+        .join('\n')}`
+    : 'Concept IDs: none provided. Use "general" as primaryConceptId.'
 
   const messages = [
     {
@@ -78,7 +103,7 @@ export async function generateQuiz({ apiKey, topic, sourceText, numQuestions, di
     },
     {
       role: 'user',
-      content: `Create a ${difficulty} difficulty quiz with ${numQuestions} questions.\n${focus}\n\nOutput JSON schema:\n{ "id": "quiz_x", "questions": [ { "id": "q1", "prompt": "...", "choices": [{"id":"a","text":"..."},{"id":"b","text":"..."},{"id":"c","text":"..."},{"id":"d","text":"..."}], "answerKey": {"value":"a"}, "explanation": "..." } ] }`,
+      content: `Create a ${difficulty} difficulty quiz with ${numQuestions} questions.\n${focus}\n\n${conceptList}\n\nOutput JSON schema:\n{ "id": "quiz_x", "questions": [ { "id": "q1", "prompt": "...", "choices": [{"id":"a","text":"..."},{"id":"b","text":"..."},{"id":"c","text":"..."},{"id":"d","text":"..."}], "answerKey": {"value":"a"}, "explanation": "...", "primaryConceptId": "limits", "secondaryConceptIds": ["derivatives"], "difficulty": 0.6, "isTransfer": false, "tags": ["calculus"] } ] }`,
     },
   ]
 
@@ -95,5 +120,6 @@ export async function generateQuiz({ apiKey, topic, sourceText, numQuestions, di
   }
 
   const parsed = parseQuizJson(content)
-  return normalizeQuiz(parsed)
+  const defaultConceptId = concepts[0]?.id || 'general'
+  return normalizeQuiz(parsed, { defaultConceptId, courseId })
 }

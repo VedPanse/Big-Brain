@@ -91,6 +91,8 @@ export default function Course() {
   const [selectedConceptId, setSelectedConceptId] = useState('')
   const [quizFocus, setQuizFocus] = useState(null)
   const [quizFocusLoading, setQuizFocusLoading] = useState(false)
+  const [laggingConcepts, setLaggingConcepts] = useState([])
+  const [questionStartAt, setQuestionStartAt] = useState(null)
 
   const activeQuestion = quiz?.questions?.[quizIndex]
   const selectedChoice = activeQuestion ? responses[activeQuestion.id]?.value : null
@@ -270,6 +272,7 @@ export default function Course() {
       formData.append('num_questions', String(numQuestions))
       formData.append('difficulty', 'medium')
       formData.append('topic', resolvedTitle || course.title || topic)
+      formData.append('courseId', topic)
 
       const sources = []
       let combinedContext = []
@@ -418,8 +421,17 @@ export default function Course() {
           quizId: quiz.id,
           topic: displayTopic || course.title,
           courseId: topic,
+          userId: learnerProfile?.userId || 'learner-1',
           quiz,
           responses,
+          attemptItems: quiz.questions.map((question) => ({
+            itemId: question.id,
+            courseId: topic,
+            primaryConceptId: question.primaryConceptId || null,
+            secondaryConceptIds: question.secondaryConceptIds || [],
+            difficulty: question.difficulty ?? 0.5,
+            isTransfer: Boolean(question.isTransfer),
+          })),
         }),
       })
       if (!response.ok) {
@@ -454,6 +466,8 @@ export default function Course() {
     setError('')
     setSelectedConceptId('')
     setQuizFocus(null)
+    setLaggingConcepts([])
+    setQuestionStartAt(null)
   }, [course])
 
   useEffect(() => {
@@ -487,10 +501,34 @@ export default function Course() {
   }, [activeTab, learnerProfile?.userId, topic])
 
   useEffect(() => {
+    if (activeTab !== 'Quizzes') return
+    const fetchLagging = async () => {
+      try {
+        const params = new URLSearchParams({
+          userId: learnerProfile?.userId || 'learner-1',
+          courseId: topic,
+        })
+        const response = await fetch(`/api/learner/lagging?${params.toString()}`)
+        if (!response.ok) throw new Error('Unable to load lagging concepts.')
+        const data = await response.json()
+        setLaggingConcepts(Array.isArray(data) ? data : [])
+      } catch {
+        setLaggingConcepts([])
+      }
+    }
+    fetchLagging()
+  }, [activeTab, learnerProfile?.userId, topic])
+
+  useEffect(() => {
     if (!showConfetti) return
     const timer = setTimeout(() => setShowConfetti(false), 2400)
     return () => clearTimeout(timer)
   }, [showConfetti])
+
+  useEffect(() => {
+    if (!activeQuestion) return
+    setQuestionStartAt(Date.now())
+  }, [activeQuestion?.id])
 
   return (
     <div className="min-h-screen bg-white">
@@ -812,13 +850,13 @@ export default function Course() {
                       <span className="text-xs font-semibold text-slate-400">Updating…</span>
                     )}
                   </div>
-                  {quizFocus?.focus?.length ? (
+                  {(laggingConcepts.length || quizFocus?.focus?.length) ? (
                     <>
                       <p className="mt-2 text-xs text-slate-500">
                         This quiz focuses on:
                       </p>
                       <div className="mt-3 flex flex-wrap gap-2">
-                        {quizFocus.focus.map((concept) => {
+                        {(laggingConcepts.length ? laggingConcepts.slice(0, 3) : (quizFocus?.focus || [])).map((concept) => {
                           const status = concept.status || {}
                           const tagStyle = status.weak
                             ? 'border-rose-200 bg-rose-50 text-rose-700'
@@ -829,10 +867,10 @@ export default function Course() {
                                 : 'border-slate-200 bg-white text-slate-600'
                           return (
                             <span
-                              key={concept.id}
+                              key={concept.id || concept.conceptId}
                               className={`rounded-full border px-3 py-1 text-xs font-semibold ${tagStyle}`}
                             >
-                              {concept.name}
+                              {concept.name || concept.title}
                               {status.weak && ' • weakest'}
                               {status.fragile && ' • fragile'}
                               {status.overdue && ' • overdue'}
@@ -844,6 +882,25 @@ export default function Course() {
                   ) : (
                     <p className="mt-2 text-xs text-slate-500">
                       Quiz focus will appear once learner data is available.
+                    </p>
+                  )}
+                </div>
+                <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                  <p className="text-sm font-semibold text-slate-700">Targeting</p>
+                  {laggingConcepts.length ? (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {laggingConcepts.slice(0, 5).map((concept) => (
+                        <span
+                          key={concept.conceptId}
+                          className="rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-700"
+                        >
+                          {concept.title}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="mt-2 text-xs text-slate-500">
+                      No lagging concepts yet.
                     </p>
                   )}
                 </div>
@@ -1027,7 +1084,12 @@ export default function Course() {
                           onClick={() =>
                             setResponses((prev) => ({
                               ...prev,
-                              [activeQuestion.id]: { value: choice.id },
+                              [activeQuestion.id]: {
+                                value: choice.id,
+                                timeSec: questionStartAt
+                                  ? Math.max(1, Math.round((Date.now() - questionStartAt) / 1000))
+                                  : null,
+                              },
                             }))
                           }
                           className={`rounded-2xl border px-4 py-3 text-left text-sm font-semibold transition ${choiceClasses}`}

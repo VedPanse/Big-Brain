@@ -157,6 +157,16 @@ const CONTENT_CATALOG = [
   },
 ]
 
+export const PREREQ_EDGES = [
+  { from: 'limits', to: 'derivatives' },
+  { from: 'derivatives', to: 'chain-rule' },
+  { from: 'limits', to: 'integrals' },
+  { from: 'arrays', to: 'trees' },
+  { from: 'trees', to: 'graphs' },
+  { from: 'regression', to: 'backprop' },
+  { from: 'backprop', to: 'attention' },
+]
+
 const defaultState = () => {
   const now = new Date()
   const daysAgo = (days) => new Date(now.getTime() - days * 24 * 60 * 60 * 1000).toISOString()
@@ -183,15 +193,7 @@ const defaultState = () => {
       backprop: { id: 'backprop', name: 'Backprop', mastery: 0.42, stability: 0.38, lastReviewedAt: daysAgo(14) },
       attention: { id: 'attention', name: 'Attention', mastery: 0.33, stability: 0.31, lastReviewedAt: daysAgo(22) },
     },
-    prereq_edges: [
-      { from: 'limits', to: 'derivatives' },
-      { from: 'derivatives', to: 'chain-rule' },
-      { from: 'limits', to: 'integrals' },
-      { from: 'arrays', to: 'trees' },
-      { from: 'trees', to: 'graphs' },
-      { from: 'regression', to: 'backprop' },
-      { from: 'backprop', to: 'attention' },
-    ],
+    prereq_edges: PREREQ_EDGES,
     learner_content_state: {},
   }
 }

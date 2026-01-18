@@ -7,7 +7,7 @@
       "text": 0.25,
       "audio": 0.25
     },
-    "updatedAt": "2026-01-18T04:56:29.871Z"
+    "updatedAt": "2026-01-18T05:13:16.333Z"
   },
   "learner_concept_state": {
     "limits": {
@@ -41,23 +41,23 @@
     "arrays": {
       "id": "arrays",
       "name": "Arrays",
-      "mastery": 0.72,
-      "stability": 0.62,
-      "lastReviewedAt": "2026-01-14T04:56:29.871Z"
+      "mastery": 0.82,
+      "stability": 0.6799999999999999,
+      "lastReviewedAt": "2026-01-18T05:13:16.333Z"
     },
     "trees": {
       "id": "trees",
       "name": "Trees",
-      "mastery": 0.46,
-      "stability": 0.41,
-      "lastReviewedAt": "2026-01-09T04:56:29.871Z"
+      "mastery": 0.56,
+      "stability": 0.47,
+      "lastReviewedAt": "2026-01-18T05:13:16.333Z"
     },
     "graphs": {
       "id": "graphs",
       "name": "Graphs",
-      "mastery": 0.4,
-      "stability": 0.35,
-      "lastReviewedAt": "2025-12-31T04:56:29.871Z"
+      "mastery": 0.5,
+      "stability": 0.41,
+      "lastReviewedAt": "2026-01-18T05:13:16.333Z"
     },
     "regression": {
       "id": "regression",

@@ -1,6 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 import Database from 'better-sqlite3'
+import { seedGraphTables } from './graphSeed.js'
 
 const DB_PATH = path.resolve('server', 'quiz_attempts.db')
 let db
@@ -11,5 +12,6 @@ export function getDb() {
   const schemaPath = path.resolve('server', 'schema.sql')
   const schema = fs.readFileSync(schemaPath, 'utf8')
   db.exec(schema)
+  seedGraphTables(db)
   return db
 }
