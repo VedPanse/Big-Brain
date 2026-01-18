@@ -7,6 +7,7 @@ import SecondaryButton from '../components/SecondaryButton'
 import CanvasBoard from '../components/CanvasBoard'
 import CanvasToolbar from '../components/CanvasToolbar'
 import { courseStubs } from '../data/courseStubs'
+import { topics } from '../data/topics'
 import { useLearning } from '../state/LearningContext'
 import { searchYoutubeVideos, recommendVideos, getVideoTranscript } from '../services/youtubeService'
 
@@ -29,7 +30,22 @@ const titleize = (value) => {
     .join(' ')
 }
 
-const slugToTitle = (slug) => titleize(slug.replace(/-/g, ' '))
+const normalizeCourseTitle = (customTopicName, topic, course, hasStub) => {
+  if (customTopicName) {
+    const normalized = customTopicName.trim().toLowerCase()
+    const slug = normalized.replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+    const match = topics.find(
+      (item) =>
+        item.title.toLowerCase() === normalized ||
+        item.slug === normalized ||
+        item.slug === slug,
+    )
+    return match ? match.title : titleize(customTopicName.replace(/-/g, ' '))
+  }
+  if (hasStub) return course.title
+  return titleize(topic.replace(/-/g, ' '))
+}
+
 
 export default function Course() {
   const { topic } = useParams()
@@ -40,7 +56,7 @@ export default function Course() {
   const customTopicName = searchParams.get('customTopic')
   const course = courseStubs[topic] || courseStubs.calculus
   const hasStub = Boolean(courseStubs[topic])
-  const resolvedTitle = customTopicName || (hasStub ? course.title : slugToTitle(topic))
+  const resolvedTitle = normalizeCourseTitle(customTopicName, topic, course, hasStub)
   const displayTopic = resolvedTitle || topic
   const [activeTab, setActiveTab] = useState('Videos')
   const [videos, setVideos] = useState([])
@@ -105,10 +121,16 @@ export default function Course() {
     try {
       const raw = localStorage.getItem(COURSE_STORAGE_KEY)
       const existing = raw ? JSON.parse(raw) : []
-      const filtered = Array.isArray(existing)
-        ? existing.filter((item) => item?.key !== entry.key)
-        : []
-      const next = [entry, ...filtered].slice(0, 8)
+      const list = Array.isArray(existing) ? existing : []
+      const deduped = []
+      const seen = new Set()
+      list.forEach((item) => {
+        const itemKey = item?.key || normalizeCourseKey(item?.slug, item?.customTopic)
+        if (!itemKey || seen.has(itemKey) || itemKey === entry.key) return
+        seen.add(itemKey)
+        deduped.push({ ...item, key: itemKey })
+      })
+      const next = [entry, ...deduped].slice(0, 8)
       localStorage.setItem(COURSE_STORAGE_KEY, JSON.stringify(next))
     } catch {
       // ignore storage errors
@@ -376,7 +398,7 @@ export default function Course() {
           <div>
             <p className="text-sm font-semibold text-slate-400">Course</p>
             <h1 className="mt-3 text-4xl font-semibold tracking-[-0.02em] text-ink md:text-5xl">
-              {resolvedTitle}
+              {titleize(resolvedTitle)}
             </h1>
             <p className="mt-2 text-xl text-ash">
               {customTopicName || !hasStub

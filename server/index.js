@@ -8,6 +8,8 @@ import { getDb } from './db.js'
 import { generateQuiz } from './quizGenerator.js'
 import { scoreAttempt } from './scoreAttempt.js'
 import { extractTextFromDocx, extractTextFromPdf } from './documentExtractors.js'
+import { generateRecommendations } from './recommendations.js'
+import OpenAI from 'openai'
 
 const envPath = path.resolve(process.cwd(), '.env')
 dotenv.config({ path: envPath })
@@ -175,6 +177,78 @@ app.get('/api/report-card', (req, res) => {
     last5Average,
     mostMissedTopic,
   })
+})
+
+app.post('/api/recommendations', async (req, res) => {
+  const { courses, count } = req.body || {}
+  const courseTitles = Array.isArray(courses)
+    ? courses.map((item) => item?.title || item).filter(Boolean)
+    : []
+
+  if (!courseTitles.length) {
+    return res.json({ recommendations: [] })
+  }
+
+  try {
+    const recommendations = await generateRecommendations({
+      apiKey,
+      courseTitles,
+      count: Number(count) || 6,
+    })
+    res.json({ recommendations })
+  } catch (error) {
+    res.status(500).json({ error: error.message || 'Failed to generate recommendations.' })
+  }
+})
+
+app.post('/api/autocomplete', async (req, res) => {
+  const { query, count } = req.body || {}
+  if (!query || !query.trim()) {
+    return res.json({ suggestions: [] })
+  }
+  if (!apiKey) {
+    return res.status(500).json({ error: 'Missing OPENAI_QUIZ_API_KEY in .env.' })
+  }
+
+  try {
+    const openai = new OpenAI({ apiKey })
+    const prompt = [
+      'Suggest real-world learning topics based on the user query.',
+      'Return ONLY JSON in the form: {"suggestions":["Topic One","Topic Two"]}.',
+      'Each suggestion must be 1-2 words, Title Case.',
+      `Query: ${query}`,
+      `Count: ${Number(count) || 6}`,
+    ].join('\n')
+
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: 'You output JSON only.' },
+        { role: 'user', content: prompt },
+      ],
+      temperature: 0.6,
+      response_format: { type: 'json_object' },
+    })
+
+    const content = response.choices?.[0]?.message?.content?.trim()
+    if (!content) {
+      throw new Error('Empty autocomplete response.')
+    }
+    let parsed
+    try {
+      parsed = JSON.parse(content)
+    } catch {
+      const match = content.match(/{[\s\S]*}/)
+      parsed = match ? JSON.parse(match[0]) : {}
+    }
+    const list = parsed?.suggestions
+    const suggestions = Array.isArray(list)
+      ? list.map((item) => String(item).trim()).filter(Boolean).slice(0, Number(count) || 6)
+      : []
+    res.json({ suggestions })
+  } catch (error) {
+    res.status(500).json({ error: error.message || 'Autocomplete failed.' })
+  }
 })
 
 app.listen(PORT, () => {

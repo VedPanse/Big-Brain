@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import NavBar from '../components/NavBar'
 import { topics } from '../data/topics'
 
@@ -15,8 +15,11 @@ const normalizeCourseKey = (slug, customTopic) => {
 }
 
 export default function Learn() {
+  const navigate = useNavigate()
   const [query, setQuery] = useState('')
   const [activeCourses, setActiveCourses] = useState([])
+  const [recommendations, setRecommendations] = useState([])
+  const [remoteSuggestions, setRemoteSuggestions] = useState([])
 
   useEffect(() => {
     try {
@@ -37,19 +40,93 @@ export default function Learn() {
     }
   }, [])
 
+  useEffect(() => {
+    const fetchRecommendations = async () => {
+      if (!activeCourses.length) {
+        setRecommendations([])
+        return
+      }
+      try {
+        const response = await fetch('/api/recommendations', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            courses: activeCourses.map((course) => ({
+              title: normalizeTitle(course.title),
+            })),
+            count: 6,
+          }),
+        })
+        if (!response.ok) {
+          const message = await response.json().catch(() => ({}))
+          throw new Error(message.error || 'Unable to load recommendations.')
+        }
+        const data = await response.json()
+        setRecommendations(Array.isArray(data.recommendations) ? data.recommendations : [])
+      } catch {
+        setRecommendations([])
+      }
+    }
+
+    fetchRecommendations()
+  }, [activeCourses])
+
   const filtered = useMemo(() => {
     const term = query.toLowerCase()
     if (!term) return topics
     return topics.filter((topic) => topic.title.toLowerCase().includes(term))
   }, [query])
 
-  const handleKeyPress = (event) => {
-    if (event.key === 'Enter' && query.trim()) {
-      // Navigate to course page with the custom topic as a slug
-      const customSlug = query.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
-      window.location.href = `/course/${customSlug}?customTopic=${encodeURIComponent(query.trim())}`
+  const suggestions = useMemo(() => {
+    if (remoteSuggestions.length) return remoteSuggestions
+    const term = query.trim().toLowerCase()
+    if (!term) return []
+    const candidates = topics.filter((topic) => {
+      return (
+        topic.title.toLowerCase().includes(term) ||
+        topic.slug.toLowerCase().includes(term) ||
+        topic.modules?.some((module) => module.toLowerCase().includes(term))
+      )
+    })
+    return candidates.map((topic) => topic.title).slice(0, 6)
+  }, [query, remoteSuggestions])
+
+  const handleKeyDown = (event) => {
+    if (event.key !== 'Enter' || !query.trim()) return
+    if (suggestions.length > 0) {
+      const first = suggestions[0]
+      const title = typeof first === 'string' ? normalizeTitle(first) : normalizeTitle(first.title)
+      const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+      navigate(`/course/${slug}?customTopic=${encodeURIComponent(title)}`)
+      return
     }
+    const customSlug = query.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+    navigate(`/course/${customSlug}?customTopic=${encodeURIComponent(query.trim())}`)
   }
+
+  useEffect(() => {
+    const term = query.trim()
+    if (!term) {
+      setRemoteSuggestions([])
+      return
+    }
+    const timer = setTimeout(() => {
+      fetch('/api/autocomplete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: term, count: 6 }),
+      })
+        .then((response) => response.json())
+        .then((data) => {
+          const list = Array.isArray(data.suggestions) ? data.suggestions : []
+          setRemoteSuggestions(list.map((item) => normalizeTitle(String(item))))
+        })
+        .catch(() => {
+          setRemoteSuggestions([])
+        })
+    }, 250)
+    return () => clearTimeout(timer)
+  }, [query])
 
   const handleRemoveCourse = (event, target) => {
     event.preventDefault()
@@ -99,7 +176,7 @@ export default function Learn() {
               <input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                onKeyPress={handleKeyPress}
+                onKeyDown={handleKeyDown}
                 placeholder="Search topics (e.g., derivatives, pointers, transformers) - Press Enter to search any topic"
                 className="relative z-20 w-full rounded-2xl border border-slate-200 bg-white px-5 py-4 text-base text-slate-700 outline-none transition focus:border-slate-300"
               />
@@ -110,6 +187,23 @@ export default function Learn() {
                   query.trim() ? 'rotate-[12deg] -translate-x-1 -translate-y-[60%]' : 'rotate-[8deg]'
                 }`}
               />
+              {suggestions.length > 0 && (
+                <div className="absolute left-0 right-0 top-full z-30 mt-3 rounded-2xl border border-slate-200 bg-white p-2 shadow-lg">
+                  {suggestions.map((topic) => {
+                    const title = typeof topic === 'string' ? normalizeTitle(topic) : normalizeTitle(topic.title)
+                    const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+                    return (
+                    <button
+                      key={slug}
+                      onClick={() => navigate(`/course/${slug}?customTopic=${encodeURIComponent(title)}`)}
+                      className="flex w-full items-center justify-between rounded-xl px-4 py-3 text-left text-sm text-slate-700 transition hover:bg-slate-50"
+                    >
+                      <span className="font-semibold text-ink">{title}</span>
+                      <span className="text-xs text-slate-400">Suggested</span>
+                    </button>
+                  )})}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -174,26 +268,47 @@ export default function Learn() {
         </div>
 
         <div className="mt-8 grid gap-6 md:grid-cols-3">
-          {filtered.map((topic) => (
-            <Link key={topic.slug} to={`/course/${topic.slug}`}>
-              <div className="group rounded-3xl border border-slate-100 bg-cloud p-6 transition hover:-translate-y-1 hover:shadow-lift">
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
-                  {topic.title}
-                </p>
-                <h3 className="mt-4 text-xl font-semibold text-ink">{topic.summary}</h3>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {topic.modules.map((module) => (
-                    <span
-                      key={module}
-                      className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-500"
-                    >
-                      {module}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </Link>
-          ))}
+          {(recommendations.length ? recommendations : filtered.map((topic) => topic.title)).map(
+            (item) => {
+              if (recommendations.length) {
+                const title = normalizeTitle(String(item))
+                const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+                return (
+                  <Link key={slug} to={`/course/${slug}?customTopic=${encodeURIComponent(title)}`}>
+                    <div className="group rounded-3xl border border-slate-100 bg-cloud p-6 transition hover:-translate-y-1 hover:shadow-lift">
+                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
+                        Suggested
+                      </p>
+                      <h3 className="mt-4 text-xl font-semibold text-ink">{title}</h3>
+                      <p className="mt-3 text-sm text-slate-500">Built from your current courses.</p>
+                    </div>
+                  </Link>
+                )
+              }
+              const topic = topics.find((topic) => topic.title === item)
+              if (!topic) return null
+              return (
+                <Link key={topic.slug} to={`/course/${topic.slug}`}>
+                  <div className="group rounded-3xl border border-slate-100 bg-cloud p-6 transition hover:-translate-y-1 hover:shadow-lift">
+                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
+                      {topic.title}
+                    </p>
+                    <h3 className="mt-4 text-xl font-semibold text-ink">{topic.summary}</h3>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {topic.modules.map((module) => (
+                        <span
+                          key={module}
+                          className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-500"
+                        >
+                          {module}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </Link>
+              )
+            },
+          )}
         </div>
       </motion.section>
     </div>
