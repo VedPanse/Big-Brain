@@ -16,6 +16,15 @@ import {
   getGraphData,
   processGraphEvent,
 } from './graphAgent.js'
+import { evaluateTeachBack } from './teachbackAgent.js'
+import {
+  createTeachBackSession,
+  getTeachBackSession,
+  saveConceptMastery,
+  updateTeachBackSession,
+} from './teachbackStore.js'
+import { generateTutorResponse } from './canvasTutor.js'
+import { generateTutorResponse } from './canvasTutor.js'
 
 const envPath = path.resolve(process.cwd(), '.env')
 dotenv.config({ path: envPath })
@@ -25,9 +34,15 @@ if (!apiKey) {
   console.warn('Missing OPENAI_QUIZ_API_KEY in .env')
 }
 
+const geminiKey = process.env.GEMINI_CANVAS_API_KEY
+if (!geminiKey) {
+  console.warn('Missing GEMINI_CANVAS_API_KEY in .env')
+}
+
 const app = express()
 const PORT = 8000
 const tmpDir = path.resolve('server', 'tmp')
+const MAX_TEACHBACK_ROUNDS = 4
 
 await fs.mkdir(tmpDir, { recursive: true })
 
@@ -265,6 +280,214 @@ app.get('/api/graph/report', (req, res) => {
     strongestTopics,
     mostConnectedTopics,
   })
+app.post('/api/teachback/start', async (req, res) => {
+  const {
+    conceptId,
+    conceptTitle,
+    conceptDescription,
+    userExplanation,
+    canvasSnapshot,
+    userId,
+    misconceptions,
+  } = req.body || {}
+
+  if (!conceptId || !conceptTitle || !userExplanation) {
+    return res.status(400).json({ error: 'Missing conceptId, conceptTitle, or userExplanation.' })
+  }
+
+  try {
+    const session = createTeachBackSession({
+      conceptId,
+      conceptTitle,
+      conceptDescription,
+      userId,
+    })
+
+    const transcript = [{ role: 'user', content: userExplanation }]
+    const aiResponse = await evaluateTeachBack({
+      apiKey: geminiKey,
+      conceptTitle,
+      conceptDescription,
+      transcript,
+      misconceptions,
+      canvasSnapshot,
+    })
+
+    const updatedTranscript = [
+      ...transcript,
+      {
+        role: 'assistant',
+        content: aiResponse.summary,
+        status: aiResponse.status,
+        interruptions: aiResponse.interruptions,
+        questions: aiResponse.questions,
+      },
+    ]
+
+    const updated = updateTeachBackSession(session.sessionId, {
+      attempts: 1,
+      status: aiResponse.status,
+      lastRubric: aiResponse.rubric,
+      lastSummary: aiResponse.summary,
+      lastNextStep: aiResponse.next_step,
+      transcript: updatedTranscript,
+    })
+
+    if (aiResponse.status === 'PASS') {
+      saveConceptMastery({
+        userId: updated.userId,
+        conceptId,
+        evidence: {
+          rubric: aiResponse.rubric,
+          summary: aiResponse.summary,
+          transcript: updatedTranscript,
+        },
+      })
+    }
+
+    res.json({
+      sessionId: session.sessionId,
+      aiMessage: aiResponse.summary,
+      status: aiResponse.status,
+      rubricBreakdown: aiResponse.rubric,
+      interruptions: aiResponse.interruptions,
+      nextQuestions: aiResponse.questions,
+      nextStep: aiResponse.next_step,
+    })
+  } catch (error) {
+    res.status(500).json({ error: error.message || 'Teach-back evaluation failed.' })
+  }
+})
+
+app.post('/api/teachback/reply', async (req, res) => {
+  const { sessionId, userReply, canvasSnapshot } = req.body || {}
+  if (!sessionId || !userReply) {
+    return res.status(400).json({ error: 'Missing sessionId or userReply.' })
+  }
+
+  const session = getTeachBackSession(sessionId)
+  if (!session) {
+    return res.status(404).json({ error: 'Teach-back session not found.' })
+  }
+
+  if (session.attempts >= MAX_TEACHBACK_ROUNDS) {
+    return res.json({
+      sessionId,
+      aiMessage: session.lastSummary || 'Not yet.',
+      status: 'FAIL',
+      rubricBreakdown: session.lastRubric,
+      interruptions: [],
+      nextQuestions: [],
+      nextStep: session.lastNextStep || 'Review the key idea and try again.',
+    })
+  }
+
+  try {
+    const transcript = [...session.transcript, { role: 'user', content: userReply }]
+    const aiResponse = await evaluateTeachBack({
+      apiKey: geminiKey,
+      conceptTitle: session.conceptTitle,
+      conceptDescription: session.conceptDescription,
+      transcript,
+      canvasSnapshot,
+    })
+
+    const attempts = session.attempts + 1
+    const shouldFail = attempts >= MAX_TEACHBACK_ROUNDS && aiResponse.status !== 'PASS'
+    const finalStatus = shouldFail ? 'FAIL' : aiResponse.status
+
+    const updatedTranscript = [
+      ...transcript,
+      {
+        role: 'assistant',
+        content: aiResponse.summary,
+        status: finalStatus,
+        interruptions: aiResponse.interruptions,
+        questions: aiResponse.questions,
+      },
+    ]
+
+    const updated = updateTeachBackSession(sessionId, {
+      attempts,
+      status: finalStatus,
+      lastRubric: aiResponse.rubric,
+      lastSummary: aiResponse.summary,
+      lastNextStep: aiResponse.next_step,
+      transcript: updatedTranscript,
+    })
+
+    if (finalStatus === 'PASS') {
+      saveConceptMastery({
+        userId: updated.userId,
+        conceptId: updated.conceptId,
+        evidence: {
+          rubric: aiResponse.rubric,
+          summary: aiResponse.summary,
+          transcript: updatedTranscript,
+        },
+      })
+    }
+
+    res.json({
+      sessionId,
+      aiMessage: aiResponse.summary,
+      status: finalStatus,
+      rubricBreakdown: aiResponse.rubric,
+      interruptions: aiResponse.interruptions,
+      nextQuestions: shouldFail ? [] : aiResponse.questions,
+      nextStep: aiResponse.next_step,
+    })
+  } catch (error) {
+    res.status(500).json({ error: error.message || 'Teach-back evaluation failed.' })
+  }
+})
+
+app.post('/api/canvas/tutor', async (req, res) => {
+  const { conceptTitle, conceptDescription, userMessage, transcript, canvasState } = req.body || {}
+  if (!conceptTitle || !userMessage) {
+    return res.status(400).json({ error: 'Missing conceptTitle or userMessage.' })
+  }
+
+  try {
+    const aiResponse = await generateTutorResponse({
+      apiKey: geminiKey,
+      conceptTitle,
+      conceptDescription,
+      transcript: Array.isArray(transcript) ? transcript : [],
+      canvasState,
+    })
+
+    res.json({
+      reply: aiResponse.reply,
+      canvasCommand: aiResponse.canvas_command || null,
+    })
+  } catch (error) {
+    res.status(500).json({ error: error.message || 'Tutor response failed.' })
+  }
+})
+
+app.post('/api/canvas/tutor', async (req, res) => {
+  const { conceptTitle, conceptDescription, userMessage, transcript, canvasState } = req.body || {}
+  if (!conceptTitle || !userMessage) {
+    return res.status(400).json({ error: 'Missing conceptTitle or userMessage.' })
+  }
+
+  try {
+    const aiResponse = await generateTutorResponse({
+      apiKey: geminiKey,
+      conceptTitle,
+      conceptDescription,
+      transcript: Array.isArray(transcript) ? transcript : [],
+      canvasState,
+    })
+
+    res.json({
+      reply: aiResponse.reply,
+      canvasCommand: aiResponse.canvas_command || null,
+    })
+  } catch (error) {
+    res.status(500).json({ error: error.message || 'Tutor response failed.' })
+  }
 })
 
 app.listen(PORT, () => {

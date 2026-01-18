@@ -6,8 +6,10 @@ import PrimaryButton from '../components/PrimaryButton'
 import SecondaryButton from '../components/SecondaryButton'
 import CanvasBoard from '../components/CanvasBoard'
 import CanvasToolbar from '../components/CanvasToolbar'
+import CanvasSessionPanel from '../components/CanvasSessionPanel'
 import { courseStubs } from '../data/courseStubs'
 import { emitGraphEvent } from '../utils/graphApi'
+import { applyCanvasCommand } from '../shared/canvasProtocol'
 
 const tabs = ['Videos', 'Quizzes', 'Canvas']
 
@@ -31,6 +33,14 @@ export default function Course() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const canvasStartRef = useRef(null)
+  const [userCanvas, setUserCanvas] = useState({ lines: [], texts: [] })
+  const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 })
+  const [aiCanvas, setAiCanvas] = useState({
+    shapes: [],
+    texts: [],
+    connections: [],
+    highlights: [],
+  })
 
   const activeQuestion = quiz?.questions?.[quizIndex]
   const selectedChoice = activeQuestion ? responses[activeQuestion.id]?.value : null
@@ -181,6 +191,12 @@ export default function Course() {
     setFile(null)
     setError('')
   }, [course])
+
+  const handleCanvasCommand = (command) => {
+    const { state: nextState, ack } = applyCanvasCommand(aiCanvas, command)
+    setAiCanvas(nextState)
+    return ack
+  }
 
   useEffect(() => {
     emitGraphEvent('TOPIC_OPENED', { topicLabel: course.title, source: 'course' })
@@ -530,13 +546,23 @@ export default function Course() {
             <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
               <div className="flex items-center justify-between">
                 <p className="text-sm font-semibold text-slate-500">Canvas workspace</p>
-                <Link to={`/canvas/${topic}`} className="text-sm font-semibold text-slate-500 hover:text-slate-700">
+                <Link
+                  to={`/canvas/${topic}`}
+                  className="text-sm font-semibold text-slate-500 hover:text-slate-700"
+                >
                   Open fullscreen canvas
                 </Link>
               </div>
               <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-white">
                 <div className="h-[360px]">
-                  <CanvasBoard tool={tool} storageKey={canvasStorageKey} resetSignal={resetSignal} />
+                  <CanvasBoard
+                    tool={tool}
+                    storageKey={canvasStorageKey}
+                    resetSignal={resetSignal}
+                    onStateChange={setUserCanvas}
+                    onSizeChange={setCanvasSize}
+                    aiState={aiCanvas}
+                  />
                 </div>
               </div>
               <div className="mt-4 flex items-center justify-between">
@@ -548,6 +574,20 @@ export default function Course() {
               </div>
             </div>
             <div className="space-y-6">
+              <CanvasSessionPanel
+                concept={{
+                  id: topic,
+                  title: course.title,
+                  description: course.subtitle || course.title,
+                }}
+                canvasState={{
+                  user: userCanvas,
+                  ai: aiCanvas,
+                  size: canvasSize,
+                  storageKey: canvasStorageKey,
+                }}
+                onCanvasCommand={handleCanvasCommand}
+              />
               <div className="rounded-3xl border border-slate-100 bg-cloud p-6">
                 <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Prompts</p>
                 <div className="mt-4 flex flex-wrap gap-2">

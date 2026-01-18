@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS attempts (
   result TEXT
 );
 
+<<<<<<< Updated upstream
 CREATE TABLE IF NOT EXISTS topics (
   id TEXT PRIMARY KEY,
   label TEXT NOT NULL,
@@ -77,3 +78,12 @@ CREATE INDEX IF NOT EXISTS idx_edges_from ON edges(fromId, fromType);
 CREATE INDEX IF NOT EXISTS idx_edges_to ON edges(toId, toType);
 CREATE INDEX IF NOT EXISTS idx_topic_stats_review ON topic_stats(nextReviewAt);
 CREATE INDEX IF NOT EXISTS idx_events_created ON events(createdAt);
+=======
+CREATE TABLE IF NOT EXISTS concept_mastery (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id TEXT,
+  concept_id TEXT,
+  mastered_at TEXT,
+  evidence_json TEXT
+);
+>>>>>>> Stashed changes

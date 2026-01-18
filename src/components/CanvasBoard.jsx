@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Stage, Layer, Line, Text } from 'react-konva'
+import { Stage, Layer, Line, Text, Rect, Circle, Arrow } from 'react-konva'
 
 const TOOL_CONFIG = {
   pen: { stroke: '#1e293b', width: 3, opacity: 1, composite: 'source-over' },
@@ -13,8 +13,10 @@ export default function CanvasBoard({
   overlays = [],
   onPointerPause,
   onSizeChange,
+  onStateChange,
   storageKey,
   resetSignal,
+  aiState,
 }) {
   const containerRef = useRef(null)
   const stageRef = useRef(null)
@@ -39,6 +41,10 @@ export default function CanvasBoard({
     if (!storageKey) return
     localStorage.setItem(storageKey, JSON.stringify({ lines, texts }))
   }, [lines, texts, storageKey])
+
+  useEffect(() => {
+    onStateChange?.({ lines, texts })
+  }, [lines, texts, onStateChange])
 
   useEffect(() => {
     if (!resetSignal) return
@@ -124,6 +130,115 @@ export default function CanvasBoard({
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
       >
+        <Layer>
+          {(aiState?.shapes || []).map((shape) => {
+            const highlight = aiState?.highlights?.find((item) => item.id === shape.id)
+            const strokeColor =
+              highlight?.level === 'error'
+                ? '#f97316'
+                : highlight?.level === 'warn'
+                  ? '#facc15'
+                  : highlight?.level === 'info'
+                    ? '#38bdf8'
+                    : shape.style?.stroke || '#1e293b'
+            if (shape.shape === 'rect') {
+              return (
+                <Rect
+                  key={shape.id}
+                  x={shape.x}
+                  y={shape.y}
+                  width={shape.w}
+                  height={shape.h}
+                  stroke={strokeColor}
+                  strokeWidth={shape.style?.strokeWidth || 2}
+                  fill={shape.style?.fill || 'transparent'}
+                />
+              )
+            }
+            if (shape.shape === 'circle') {
+              return (
+                <Circle
+                  key={shape.id}
+                  x={shape.x}
+                  y={shape.y}
+                  radius={Math.max(shape.w, shape.h) / 2}
+                  stroke={strokeColor}
+                  strokeWidth={shape.style?.strokeWidth || 2}
+                  fill={shape.style?.fill || 'transparent'}
+                />
+              )
+            }
+            if (shape.shape === 'arrow') {
+              return (
+                <Arrow
+                  key={shape.id}
+                  points={[shape.x, shape.y, shape.w, shape.h]}
+                  stroke={strokeColor}
+                  fill={strokeColor}
+                  pointerLength={10}
+                  pointerWidth={10}
+                  strokeWidth={shape.style?.strokeWidth || 2}
+                />
+              )
+            }
+            if (shape.shape === 'line') {
+              return (
+                <Line
+                  key={shape.id}
+                  points={[shape.x, shape.y, shape.w, shape.h]}
+                  stroke={strokeColor}
+                  strokeWidth={shape.style?.strokeWidth || 2}
+                />
+              )
+            }
+            return null
+          })}
+          {(aiState?.connections || []).map((conn) => {
+            const from = aiState?.shapes?.find((shape) => shape.id === conn.fromId)
+            const to = aiState?.shapes?.find((shape) => shape.id === conn.toId)
+            if (!from || !to) return null
+            const fromX = from.x + from.w / 2
+            const fromY = from.y + from.h / 2
+            const toX = to.x + to.w / 2
+            const toY = to.y + to.h / 2
+            return (
+              <Arrow
+                key={conn.id}
+                points={[fromX, fromY, toX, toY]}
+                stroke="#64748b"
+                fill="#64748b"
+                strokeWidth={2}
+                pointerLength={8}
+                pointerWidth={8}
+              />
+            )
+          })}
+          {(aiState?.texts || []).map((note) => (
+            <Text
+              key={note.id}
+              x={note.x}
+              y={note.y}
+              text={note.text}
+              fontSize={note.style?.fontSize || 14}
+              fill={note.style?.fill || '#334155'}
+            />
+          ))}
+          {(aiState?.highlights || []).map((highlight) => {
+            if (!highlight.note) return null
+            const target = aiState?.shapes?.find((shape) => shape.id === highlight.id)
+            if (!target) return null
+            return (
+              <Text
+                key={`${highlight.id}-note`}
+                x={target.x + target.w + 6}
+                y={target.y - 4}
+                text={highlight.note}
+                fontSize={12}
+                fill="#b45309"
+              />
+            )
+          })}
+        </Layer>
         <Layer>
           {lines.map((line, index) => (
             <Line
