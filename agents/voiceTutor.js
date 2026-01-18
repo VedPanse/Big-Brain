@@ -251,7 +251,7 @@ export default defineAgent({
       sendTranscript('agent', content)
     })
 
-    ctx.room.on('dataReceived', (payload, participant) => {
+    ctx.room.on('dataReceived', async (payload, participant) => {
       try {
         const text = new TextDecoder().decode(payload)
         const message = JSON.parse(text)
