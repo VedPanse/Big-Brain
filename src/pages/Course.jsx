@@ -562,14 +562,6 @@ export default function Course() {
                       />
                       <span className="text-sm font-semibold text-slate-700">🤖 AI Generated Questions</span>
                     </label>
-                    {includeTopic && (
-                      <input
-                        value={topicInput}
-                        onChange={(event) => setTopicInput(event.target.value)}
-                        className="mt-3 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-600"
-                        placeholder="Enter topic or context (optional)"
-                      />
-                    )}
                   </div>
 
                   {/* Documents Section */}
