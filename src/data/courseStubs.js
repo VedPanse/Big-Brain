@@ -479,3 +479,4 @@ export const courseStubs = {
       'Visualize how integration reverses differentiation.',
     ],
   },
+}
