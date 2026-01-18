@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import NavBar from '../components/NavBar'
@@ -7,25 +7,15 @@ import SecondaryButton from '../components/SecondaryButton'
 import CanvasBoard from '../components/CanvasBoard'
 import CanvasToolbar from '../components/CanvasToolbar'
 import { courseStubs } from '../data/courseStubs'
-import { useLearning } from '../state/LearningContext'
-import { searchYoutubeVideos, recommendVideos } from '../services/youtubeService'
+import { emitGraphEvent } from '../utils/graphApi'
 
 const tabs = ['Videos', 'Quizzes', 'Canvas']
 
 export default function Course() {
   const { topic } = useParams()
-  const { markVideoViewed, unmarkVideoViewed, getViewedVideosForTopic } = useLearning()
-  
-  // Check if this is a custom topic from URL params
-  const searchParams = new URLSearchParams(window.location.search)
-  const customTopicName = searchParams.get('customTopic')
-  const displayTopic = customTopicName || topic
-  
   const course = courseStubs[topic] || courseStubs.calculus
   const [activeTab, setActiveTab] = useState('Videos')
-  const [videos, setVideos] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [activeVideoId, setActiveVideoId] = useState(null)
+  const [activeVideo, setActiveVideo] = useState(course.videos[0])
   const [quizIndex, setQuizIndex] = useState(0)
   const [showAnswer, setShowAnswer] = useState(false)
   const [tool, setTool] = useState('pen')
@@ -38,8 +28,9 @@ export default function Course() {
   const [result, setResult] = useState(null)
   const [history, setHistory] = useState([])
   const [report, setReport] = useState(null)
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [embedError, setEmbedError] = useState(false)
+  const canvasStartRef = useRef(null)
 
   const activeQuestion = quiz?.questions?.[quizIndex]
   const selectedChoice = activeQuestion ? responses[activeQuestion.id]?.value : null
@@ -49,66 +40,17 @@ export default function Course() {
     return question.choices?.find((choice) => choice.id === choiceId)?.text || 'Unanswered'
   }
 
-  // Fetch videos for this topic on mount
-  useEffect(() => {
-    const fetchVideos = async () => {
-      setLoading(true)
-      try {
-        // Use custom topic name if provided, otherwise use slug
-        const searchTerm = customTopicName || topic
-        const fetched = await searchYoutubeVideos(searchTerm, 20)
-        setVideos(fetched)
-        setActiveVideoId(fetched[0]?.id || null)
-      } catch (error) {
-        console.error('Failed to fetch videos:', error)
-        setVideos([])
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchVideos()
-  }, [topic, customTopicName])
-
-  const activeVideo = useMemo(() => {
-    return videos.find((video) => video.id === activeVideoId) || null
-  }, [activeVideoId, videos])
-
-  const viewedVideos = useMemo(() => {
-    return getViewedVideosForTopic(topic)
-  }, [topic, getViewedVideosForTopic])
-
-  const recommendations = useMemo(() => {
-    if (!activeVideo || !videos.length) return []
-    return recommendVideos(activeVideo, videos, viewedVideos, videos, 6)
-  }, [activeVideo, videos, viewedVideos])
-
-  const handleVideoClick = (videoId) => {
-    setActiveVideoId(videoId)
-    setEmbedError(false)
-  }
-
-  const handleToggleSeen = (videoId) => {
-    if (isVideoSeen(videoId)) {
-      unmarkVideoViewed(topic, videoId)
-    } else {
-      markVideoViewed(topic, videoId)
-    }
-  }
-
-  const handleMarkAsSeen = (videoId) => {
-    markVideoViewed(topic, videoId)
-  }
-
-  const isVideoSeen = (videoId) => {
-    return viewedVideos.includes(videoId)
-  }
-
-
   const handleNextQuiz = () => {
     if (!quiz?.questions?.length) return
     setShowAnswer(false)
     setQuizIndex((prev) => Math.min(prev + 1, quiz.questions.length - 1))
+  }
+
+  const resolveConceptLabel = (value) => {
+    if (!value) return ''
+    const normalized = value.trim().toLowerCase()
+    const match = course.concepts?.find((concept) => concept.toLowerCase() === normalized)
+    return match || ''
   }
 
   const handleGenerateQuiz = async () => {
@@ -141,6 +83,12 @@ export default function Course() {
       setQuizIndex(0)
       setResponses({})
       setShowAnswer(false)
+      emitGraphEvent('QUIZ_GENERATED', {
+        topicLabel: topicInput || course.title,
+        conceptLabel: resolveConceptLabel(topicInput || ''),
+        numQuestions: quizData.questions?.length || 0,
+        difficulty: 'medium',
+      })
       await fetchHistoryAndReport()
       setFile(null)
     } catch (err) {
@@ -190,6 +138,13 @@ export default function Course() {
       }
       const data = await response.json()
       setResult(data.result)
+      emitGraphEvent('QUIZ_SUBMITTED', {
+        topicLabel: topicInput || course.title,
+        conceptLabel: resolveConceptLabel(topicInput || ''),
+        score: data.result?.correct ?? 0,
+        total: data.result?.total ?? 0,
+        perQuestion: data.result?.perQuestion ?? [],
+      })
       await fetchHistoryAndReport()
     } catch (err) {
       setError(err.message)
@@ -199,8 +154,21 @@ export default function Course() {
   }
 
   const canvasStorageKey = useMemo(() => `canvas-${topic}-embedded`, [topic])
+  const handleWatchVideo = (video) => {
+    setActiveVideo(video)
+    const minutesMatch = String(video?.duration || '').match(/(\d+)/)
+    const minutes = minutesMatch ? Number(minutesMatch[1]) : 0
+    if (minutes) {
+      emitGraphEvent('VIDEO_WATCHED', {
+        topicLabel: course.title,
+        conceptLabel: resolveConceptLabel(video?.concept || ''),
+        minutes,
+      })
+    }
+  }
 
   useEffect(() => {
+    setActiveVideo(course.videos[0])
     setActiveTab('Videos')
     setQuizIndex(0)
     setShowAnswer(false)
@@ -213,6 +181,40 @@ export default function Course() {
     setFile(null)
     setError('')
   }, [course])
+
+  useEffect(() => {
+    emitGraphEvent('TOPIC_OPENED', { topicLabel: course.title, source: 'course' })
+  }, [course.title])
+
+  useEffect(() => {
+    if (activeTab === 'Canvas') {
+      canvasStartRef.current = Date.now()
+      return
+    }
+    if (canvasStartRef.current) {
+      const minutes = Math.max(1, Math.round((Date.now() - canvasStartRef.current) / 60000))
+      emitGraphEvent('CANVAS_USED', {
+        topicLabel: course.title,
+        conceptLabel: resolveConceptLabel(activeVideo?.concept || ''),
+        minutes,
+      })
+      canvasStartRef.current = null
+    }
+  }, [activeTab, course.title, activeVideo])
+
+  useEffect(
+    () => () => {
+      if (canvasStartRef.current) {
+        const minutes = Math.max(1, Math.round((Date.now() - canvasStartRef.current) / 60000))
+        emitGraphEvent('CANVAS_USED', {
+          topicLabel: course.title,
+          conceptLabel: resolveConceptLabel(activeVideo?.concept || ''),
+          minutes,
+        })
+      }
+    },
+    [course.title, activeVideo],
+  )
 
   useEffect(() => {
     if (activeTab !== 'Quizzes') return
@@ -232,9 +234,9 @@ export default function Course() {
           <div>
             <p className="text-sm font-semibold text-slate-400">Course</p>
             <h1 className="mt-3 text-4xl font-semibold tracking-[-0.02em] text-ink md:text-5xl">
-              {customTopicName || course.title}
+              {course.title}
             </h1>
-            <p className="mt-2 text-xl text-ash">{customTopicName ? `Videos and resources for ${customTopicName}` : course.subtitle}</p>
+            <p className="mt-2 text-xl text-ash">{course.subtitle}</p>
           </div>
 
           <div className="flex w-full flex-wrap items-center gap-3">
@@ -254,195 +256,58 @@ export default function Course() {
             <Link to="/diagnostic" className="text-sm font-semibold text-slate-400 hover:text-slate-600">
               Optional: personalize
             </Link>
+            <Link to="/graph" className="text-sm text-gray-500 hover:text-gray-700">
+              View graph
+            </Link>
           </div>
         </div>
 
         {activeTab === 'Videos' && (
-          <div className="mt-12 grid gap-8 xl:grid-cols-[1.6fr_1fr]">
-            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-              {loading ? (
-                <div className="flex h-[360px] items-center justify-center">
-                  <p className="text-slate-500">Loading videos...</p>
-                </div>
-              ) : activeVideo ? (
-                <>
-                  <div className="relative overflow-hidden rounded-2xl bg-black">
-                    {!embedError ? (
-                      <iframe
-                        src={`https://www.youtube.com/embed/${activeVideo.id}?autoplay=0&rel=0&modestbranding=1`}
-                        title={activeVideo.title}
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                        allowFullScreen
-                        referrerPolicy="strict-origin-when-cross-origin"
-                        className="aspect-video w-full"
-                        onError={() => setEmbedError(true)}
-                      />
-                    ) : (
-                      <div className="relative aspect-video w-full">
-                        <img
-                          src={activeVideo.thumbnail}
-                          alt={activeVideo.title}
-                          className="h-full w-full object-cover"
-                        />
-                        <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-                          <a
-                            href={activeVideo.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-2 rounded-full bg-white px-6 py-3 text-sm font-semibold text-slate-900 shadow-lg transition hover:bg-slate-50"
-                          >
-                            <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
-                              <path d="M8 5v14l11-7z" />
-                            </svg>
-                            Watch on YouTube
-                          </a>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="mt-5 space-y-3">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1">
-                        <h3 className="text-xl font-semibold text-ink">{activeVideo.title}</h3>
-                        <p className="mt-1 text-sm text-slate-500">
-                          {activeVideo.channel} • {activeVideo.duration} • {activeVideo.views?.toLocaleString()} views
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => handleToggleSeen(activeVideo.id)}
-                        className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${
-                          isVideoSeen(activeVideo.id)
-                            ? 'bg-green-100 text-green-700 hover:bg-red-100 hover:text-red-700'
-                            : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                        }`}
-                      >
-                        {isVideoSeen(activeVideo.id) ? (
-                          <>
-                            <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                            </svg>
-                            Unseen
-                          </>
-                        ) : (
-                          <>
-                            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                            </svg>
-                            Mark as Seen
-                          </>
-                        )}
-                      </button>
-                    </div>
-                    <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
-                      <p className="text-sm font-semibold text-slate-600">Description</p>
-                      <p className="mt-2 text-sm text-slate-600 line-clamp-3">{activeVideo.description}</p>
-                    </div>
-                    {activeVideo.tags?.length ? (
-                      <div className="flex flex-wrap gap-2">
-                        {activeVideo.tags.map((tag) => (
-                          <span
-                            key={tag}
-                            className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-500"
-                          >
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
-                    ) : null}
-                  </div>
-                </>
-              ) : (
-                <div className="flex h-[360px] items-center justify-center text-slate-500">
-                  No videos available for this topic yet.
-                </div>
-              )}
-            </div>
-
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-semibold text-slate-500">Recommended for {topic}</p>
-                <span className="text-xs font-semibold text-slate-400">{recommendations.length} picks</span>
-              </div>
-
-              <div className="space-y-3">
-                {recommendations.map((video) => {
-                  const isSeen = isVideoSeen(video.id)
-                  return (
-                    <button
-                      key={video.id}
-                      onClick={() => handleVideoClick(video.id)}
-                      className="group relative flex w-full items-start gap-3 rounded-2xl border border-slate-100 bg-white p-2 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
-                    >
-                      {isSeen && (
-                        <div className="absolute right-2 top-2 rounded-full bg-green-100 p-1">
-                          <svg className="h-3 w-3 text-green-700" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                          </svg>
-                        </div>
-                      )}
-                      <div className="overflow-hidden rounded-xl">
-                        <img
-                          src={video.thumbnail}
-                          alt={video.title}
-                          className="h-20 w-32 object-cover transition group-hover:scale-[1.02]"
-                        />
-                      </div>
-                      <div className="flex flex-1 flex-col gap-1">
-                        <p className="text-sm font-semibold text-ink leading-snug line-clamp-2">{video.title}</p>
-                        <p className="text-xs font-semibold text-slate-500">
-                          {video.channel} • {video.duration}
-                        </p>
-                        <p className="text-xs text-slate-500 line-clamp-2">{video.description}</p>
-                      </div>
-                    </button>
-                  )
-                })}
-                {!recommendations.length && videos.length > 0 && (
-                  <p className="rounded-2xl border border-slate-100 bg-white p-4 text-sm text-slate-500">
-                    Watch more videos to see recommendations.
+          <div className="mt-12 grid gap-8 lg:grid-cols-[1.2fr_0.8fr]">
+            <div className="space-y-6">
+              <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                <div className="h-64 rounded-2xl bg-gradient-to-br from-slate-100 to-slate-50" />
+                <div className="mt-6">
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
+                    Now playing
                   </p>
-                )}
+                  <h3 className="mt-2 text-2xl font-semibold text-ink">{activeVideo.title}</h3>
+                  <p className="mt-2 text-sm text-slate-500">{activeVideo.channel}</p>
+                </div>
+              </div>
+              <div className="rounded-3xl border border-slate-100 bg-cloud p-6">
+                <p className="text-sm font-semibold text-slate-400">Next up</p>
+                <div className="mt-4 space-y-4">
+                  {course.videos.slice(1, 4).map((video) => (
+                    <div key={video.id} className="flex items-center justify-between gap-4">
+                      <div>
+                        <p className="text-base font-semibold text-ink">{video.title}</p>
+                        <p className="text-sm text-slate-500">{video.channel}</p>
+                      </div>
+                      <SecondaryButton onClick={() => handleWatchVideo(video)}>Watch</SecondaryButton>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
 
-            {viewedVideos.length > 0 && (
-              <div className="mt-12 space-y-3">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm font-semibold text-slate-500">Videos You've Seen ({viewedVideos.length})</p>
+            <div className="space-y-6">
+              {course.videos.map((video) => (
+                <div key={video.id} className="rounded-3xl border border-slate-100 bg-white p-6 transition hover:-translate-y-1 hover:shadow-lift">
+                  <div className="h-28 rounded-2xl bg-gradient-to-br from-slate-100 to-slate-50" />
+                  <div className="mt-4">
+                    <p className="text-sm font-semibold text-ink">{video.title}</p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      {video.channel} • {video.duration}
+                    </p>
+                    <p className="mt-2 text-sm text-slate-500">{video.why}</p>
+                  </div>
+                  <SecondaryButton onClick={() => handleWatchVideo(video)} className="mt-4">
+                    Watch
+                  </SecondaryButton>
                 </div>
-                <div className="space-y-2 rounded-2xl border border-slate-100 bg-white p-4">
-                  {videos
-                    .filter((video) => viewedVideos.includes(video.id))
-                    .map((video) => (
-                      <div key={video.id} className="flex items-start justify-between gap-3 pb-3 last:pb-0">
-                        <div className="flex flex-1 items-start gap-3">
-                          <div className="overflow-hidden rounded-lg">
-                            <img
-                              src={video.thumbnail}
-                              alt={video.title}
-                              className="h-14 w-24 object-cover"
-                            />
-                          </div>
-                          <div className="flex flex-1 flex-col gap-1">
-                            <p className="text-sm font-semibold text-ink line-clamp-2">{video.title}</p>
-                            <p className="text-xs text-slate-500">{video.channel}</p>
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => handleToggleSeen(video.id)}
-                          className="flex-shrink-0 rounded-full bg-green-100 p-2 text-green-700 transition hover:bg-red-100 hover:text-red-700"
-                          title="Remove from seen"
-                        >
-                          <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                          </svg>
-                        </button>
-                      </div>
-                    ))}
-                </div>
-              </div>
-            )}
+              ))}
+            </div>
           </div>
         )}
 

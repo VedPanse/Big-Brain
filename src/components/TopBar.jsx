@@ -9,11 +9,11 @@ export default function TopBar({ title, subtitle }) {
         <h2 className="text-2xl font-semibold text-slate-900">{title}</h2>
       </div>
       <Link
-        to="/graph"
+        to="/learn"
         className="flex items-center gap-2 rounded-full border border-white/40 bg-white/70 px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:-translate-y-0.5"
       >
         <ArrowLeft size={16} />
-        Exit to graph
+        Exit to learn
       </Link>
     </div>
   )

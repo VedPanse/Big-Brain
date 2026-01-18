@@ -8,6 +8,14 @@ import { getDb } from './db.js'
 import { generateQuiz } from './quizGenerator.js'
 import { scoreAttempt } from './scoreAttempt.js'
 import { extractTextFromDocx, extractTextFromPdf } from './documentExtractors.js'
+import {
+  archiveEdge,
+  archiveConcept,
+  archiveTopic,
+  createConcept,
+  getGraphData,
+  processGraphEvent,
+} from './graphAgent.js'
 
 const envPath = path.resolve(process.cwd(), '.env')
 dotenv.config({ path: envPath })
@@ -161,6 +169,101 @@ app.get('/api/report-card', (req, res) => {
     averageScore,
     last5Average,
     mostMissedTopic,
+  })
+})
+
+app.get('/api/graph', (req, res) => {
+  const db = getDb()
+  const payload = getGraphData(db)
+  res.json(payload)
+})
+
+app.post('/api/graph/event', (req, res) => {
+  const { type, payload } = req.body || {}
+  if (!type) return res.status(400).json({ error: 'Missing event type.' })
+  const db = getDb()
+  const tx = db.transaction(() => processGraphEvent(db, type, payload || {}))
+  const result = tx()
+  res.json(result)
+})
+
+app.post('/api/graph/link', (req, res) => {
+  const { fromLabel, toLabel, lensLabel, fromType, toType, fromTopicLabel, toTopicLabel } = req.body || {}
+  if (!fromLabel || !toLabel) {
+    return res.status(400).json({ error: 'fromLabel and toLabel are required.' })
+  }
+  const db = getDb()
+  const tx = db.transaction(() =>
+    processGraphEvent(db, 'LENS_LINK_CREATED', {
+      fromLabel,
+      toLabel,
+      lensLabel,
+      fromType,
+      toType,
+      fromTopicLabel,
+      toTopicLabel,
+    }),
+  )
+  const result = tx()
+  res.json(result)
+})
+
+app.post('/api/graph/concept', (req, res) => {
+  const { topicLabel, conceptLabel } = req.body || {}
+  if (!topicLabel || !conceptLabel) {
+    return res.status(400).json({ error: 'topicLabel and conceptLabel are required.' })
+  }
+  const db = getDb()
+  const result = createConcept(db, topicLabel, conceptLabel)
+  res.json({ ok: true, ...result })
+})
+
+app.post('/api/graph/archive-concept', (req, res) => {
+  const { conceptId } = req.body || {}
+  if (!conceptId) return res.status(400).json({ error: 'conceptId is required.' })
+  const db = getDb()
+  archiveConcept(db, conceptId)
+  res.json({ ok: true })
+})
+
+app.post('/api/graph/archive-topic', (req, res) => {
+  const { topicId } = req.body || {}
+  if (!topicId) return res.status(400).json({ error: 'topicId is required.' })
+  const db = getDb()
+  archiveTopic(db, topicId)
+  res.json({ ok: true })
+})
+
+app.post('/api/graph/archive-edge', (req, res) => {
+  const { edgeId } = req.body || {}
+  if (!edgeId) return res.status(400).json({ error: 'edgeId is required.' })
+  const db = getDb()
+  archiveEdge(db, edgeId)
+  res.json({ ok: true })
+})
+
+app.get('/api/graph/report', (req, res) => {
+  const db = getDb()
+  const { topics, concepts, edges } = getGraphData(db)
+  const nodes = [...topics, ...concepts]
+  const needsReviewCount = nodes.filter((node) => node.needsReview).length
+  const weakestTopics = [...topics].sort((a, b) => a.effectiveStrength - b.effectiveStrength).slice(0, 5)
+  const strongestTopics = [...topics].sort((a, b) => b.effectiveStrength - a.effectiveStrength).slice(0, 5)
+  const degreeMap = edges.reduce((acc, edge) => {
+    acc[edge.fromId] = (acc[edge.fromId] || 0) + 1
+    acc[edge.toId] = (acc[edge.toId] || 0) + 1
+    return acc
+  }, {})
+  const mostConnectedTopics = [...topics]
+    .map((node) => ({ ...node, degree: degreeMap[node.id] || 0 }))
+    .sort((a, b) => b.degree - a.degree)
+    .slice(0, 5)
+
+  res.json({
+    needsReviewCount,
+    weakestTopics,
+    strongestTopics,
+    mostConnectedTopics,
   })
 })
 

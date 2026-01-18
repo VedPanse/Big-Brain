@@ -2,6 +2,7 @@ export const courseStubs = {
   calculus: {
     title: 'Calculus',
     subtitle: 'Your course plan for today.',
+    concepts: ['Limits', 'Derivatives', 'Chain Rule', 'Integrals', 'Gradients'],
     videos: [
       {
         id: 'calc-1',
@@ -9,8 +10,7 @@ export const courseStubs = {
         channel: 'Math Visuals',
         duration: '8:42',
         why: 'Builds a mental model before symbols.',
-        thumbnail: 'https://picsum.photos/seed/calc-limits/640/360',
-        tags: ['calculus', 'limits', 'intuition'],
+        concept: 'Limits',
       },
       {
         id: 'calc-2',
@@ -18,8 +18,7 @@ export const courseStubs = {
         channel: 'Studio Calculus',
         duration: '11:05',
         why: 'Connects change to geometry.',
-        thumbnail: 'https://picsum.photos/seed/calc-derivative/640/360',
-        tags: ['calculus', 'derivatives', 'geometry'],
+        concept: 'Derivatives',
       },
       {
         id: 'calc-3',
@@ -27,8 +26,7 @@ export const courseStubs = {
         channel: 'Concept Craft',
         duration: '9:18',
         why: 'Shows nested change step-by-step.',
-        thumbnail: 'https://picsum.photos/seed/calc-chain/640/360',
-        tags: ['calculus', 'chain rule', 'composition'],
+        concept: 'Chain Rule',
       },
       {
         id: 'calc-4',
@@ -36,8 +34,7 @@ export const courseStubs = {
         channel: 'Math Visuals',
         duration: '10:11',
         why: 'Turns sums into surfaces.',
-        thumbnail: 'https://picsum.photos/seed/calc-integrals/640/360',
-        tags: ['calculus', 'integrals', 'area'],
+        concept: 'Integrals',
       },
       {
         id: 'calc-5',
@@ -45,8 +42,7 @@ export const courseStubs = {
         channel: 'Studio Calculus',
         duration: '7:32',
         why: 'Connects derivatives and integrals.',
-        thumbnail: 'https://picsum.photos/seed/calc-ftc/640/360',
-        tags: ['calculus', 'fundamental theorem', 'bridge'],
+        concept: 'Integrals',
       },
       {
         id: 'calc-6',
@@ -54,8 +50,7 @@ export const courseStubs = {
         channel: 'Concept Craft',
         duration: '12:20',
         why: 'Applies derivatives to reasoning.',
-        thumbnail: 'https://picsum.photos/seed/calc-curve/640/360',
-        tags: ['calculus', 'derivatives', 'examples'],
+        concept: 'Derivatives',
       },
     ],
     quizzes: [
@@ -106,6 +101,7 @@ export const courseStubs = {
   'data-structures': {
     title: 'Data Structures',
     subtitle: 'Your course plan for today.',
+    concepts: ['Arrays', 'Linked Lists', 'Trees', 'Graphs', 'Shortest Paths'],
     videos: [
       {
         id: 'ds-1',
@@ -113,8 +109,7 @@ export const courseStubs = {
         channel: 'CS Core',
         duration: '7:10',
         why: 'Shows contiguous layout benefits.',
-        thumbnail: 'https://picsum.photos/seed/ds-arrays/640/360',
-        tags: ['data structures', 'arrays', 'memory'],
+        concept: 'Arrays',
       },
       {
         id: 'ds-2',
@@ -122,8 +117,7 @@ export const courseStubs = {
         channel: 'Data Forge',
         duration: '9:42',
         why: 'Highlights trade-offs vs arrays.',
-        thumbnail: 'https://picsum.photos/seed/ds-lists/640/360',
-        tags: ['data structures', 'linked lists', 'tradeoffs'],
+        concept: 'Linked Lists',
       },
       {
         id: 'ds-3',
@@ -131,8 +125,7 @@ export const courseStubs = {
         channel: 'CS Core',
         duration: '11:20',
         why: 'Builds intuition for traversal.',
-        thumbnail: 'https://picsum.photos/seed/ds-trees/640/360',
-        tags: ['data structures', 'trees', 'recursion'],
+        concept: 'Trees',
       },
       {
         id: 'ds-4',
@@ -140,8 +133,7 @@ export const courseStubs = {
         channel: 'Data Forge',
         duration: '8:55',
         why: 'Explains ordering and balance.',
-        thumbnail: 'https://picsum.photos/seed/ds-bst/640/360',
-        tags: ['data structures', 'bst', 'ordering'],
+        concept: 'Trees',
       },
       {
         id: 'ds-5',
@@ -149,8 +141,7 @@ export const courseStubs = {
         channel: 'Algorithms Studio',
         duration: '10:05',
         why: 'Connects nodes to real systems.',
-        thumbnail: 'https://picsum.photos/seed/ds-graphs/640/360',
-        tags: ['data structures', 'graphs', 'networks'],
+        concept: 'Graphs',
       },
       {
         id: 'ds-6',
@@ -158,8 +149,7 @@ export const courseStubs = {
         channel: 'CS Core',
         duration: '6:40',
         why: 'Relates cost to structure.',
-        thumbnail: 'https://picsum.photos/seed/ds-bigo/640/360',
-        tags: ['data structures', 'big-o', 'performance'],
+        concept: 'Arrays',
       },
     ],
     quizzes: [
@@ -210,6 +200,7 @@ export const courseStubs = {
   'machine-learning': {
     title: 'Machine Learning',
     subtitle: 'Your course plan for today.',
+    concepts: ['Linear Regression', 'Gradient Descent', 'Backprop', 'Attention', 'Transformers'],
     videos: [
       {
         id: 'ml-1',
@@ -217,8 +208,7 @@ export const courseStubs = {
         channel: 'ML Studio',
         duration: '8:20',
         why: 'Shows how loss shapes the line.',
-        thumbnail: 'https://picsum.photos/seed/ml-regression/640/360',
-        tags: ['machine learning', 'regression', 'loss'],
+        concept: 'Linear Regression',
       },
       {
         id: 'ml-2',
@@ -226,8 +216,7 @@ export const courseStubs = {
         channel: 'Model Makers',
         duration: '10:12',
         why: 'Visualizes steps down the surface.',
-        thumbnail: 'https://picsum.photos/seed/ml-descent/640/360',
-        tags: ['machine learning', 'optimization', 'gradients'],
+        concept: 'Gradient Descent',
       },
       {
         id: 'ml-3',
@@ -235,8 +224,7 @@ export const courseStubs = {
         channel: 'ML Studio',
         duration: '12:05',
         why: 'Clarifies flow of gradients.',
-        thumbnail: 'https://picsum.photos/seed/ml-backprop/640/360',
-        tags: ['machine learning', 'backprop', 'gradients'],
+        concept: 'Backprop',
       },
       {
         id: 'ml-4',
@@ -244,8 +232,7 @@ export const courseStubs = {
         channel: 'Model Makers',
         duration: '7:48',
         why: 'Connects bias and variance.',
-        thumbnail: 'https://picsum.photos/seed/ml-regularization/640/360',
-        tags: ['machine learning', 'regularization', 'bias variance'],
+        concept: 'Linear Regression',
       },
       {
         id: 'ml-5',
@@ -253,8 +240,7 @@ export const courseStubs = {
         channel: 'ML Studio',
         duration: '9:40',
         why: 'Maps queries and keys visually.',
-        thumbnail: 'https://picsum.photos/seed/ml-attention/640/360',
-        tags: ['machine learning', 'attention', 'transformers'],
+        concept: 'Attention',
       },
       {
         id: 'ml-6',
@@ -262,8 +248,7 @@ export const courseStubs = {
         channel: 'Model Makers',
         duration: '6:58',
         why: 'Shows each training step.',
-        thumbnail: 'https://picsum.photos/seed/ml-training/640/360',
-        tags: ['machine learning', 'training', 'loops'],
+        concept: 'Gradient Descent',
       },
     ],
     quizzes: [
