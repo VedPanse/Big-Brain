@@ -7,14 +7,19 @@ import SecondaryButton from '../components/SecondaryButton'
 import CanvasBoard from '../components/CanvasBoard'
 import CanvasToolbar from '../components/CanvasToolbar'
 import { courseStubs } from '../data/courseStubs'
+import { useLearning } from '../state/LearningContext'
+import { searchYoutubeVideos, recommendVideos } from '../services/youtubeService'
 
 const tabs = ['Videos', 'Quizzes', 'Canvas']
 
 export default function Course() {
   const { topic } = useParams()
+  const { markVideoViewed, getViewedVideosForTopic } = useLearning()
   const course = courseStubs[topic] || courseStubs.calculus
   const [activeTab, setActiveTab] = useState('Videos')
-  const [activeVideo, setActiveVideo] = useState(course.videos[0])
+  const [videos, setVideos] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [activeVideoId, setActiveVideoId] = useState(null)
   const [quizIndex, setQuizIndex] = useState(0)
   const [showAnswer, setShowAnswer] = useState(false)
   const [tool, setTool] = useState('pen')
@@ -27,8 +32,8 @@ export default function Course() {
   const [result, setResult] = useState(null)
   const [history, setHistory] = useState([])
   const [report, setReport] = useState(null)
-  const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [embedError, setEmbedError] = useState(false)
 
   const activeQuestion = quiz?.questions?.[quizIndex]
   const selectedChoice = activeQuestion ? responses[activeQuestion.id]?.value : null
@@ -37,6 +42,46 @@ export default function Course() {
     if (!question || !choiceId) return 'Unanswered'
     return question.choices?.find((choice) => choice.id === choiceId)?.text || 'Unanswered'
   }
+
+  // Fetch videos for this topic on mount
+  useEffect(() => {
+    const fetchVideos = async () => {
+      setLoading(true)
+      try {
+        const fetched = await searchYoutubeVideos(topic, 20)
+        setVideos(fetched)
+        setActiveVideoId(fetched[0]?.id || null)
+      } catch (error) {
+        console.error('Failed to fetch videos:', error)
+        setVideos([])
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchVideos()
+  }, [topic])
+
+  const activeVideo = useMemo(() => {
+    return videos.find((video) => video.id === activeVideoId) || null
+  }, [activeVideoId, videos])
+
+  const viewedVideos = useMemo(() => {
+    return getViewedVideosForTopic(topic)
+  }, [topic, getViewedVideosForTopic])
+
+  const recommendations = useMemo(() => {
+    if (!activeVideo || !videos.length) return []
+    return recommendVideos(activeVideo, videos, viewedVideos, videos, 6)
+  }, [activeVideo, videos, viewedVideos])
+
+  const handleVideoClick = (videoId) => {
+    setActiveVideoId(videoId)
+    setEmbedError(false)
+    // Mark this video as viewed for this topic
+    markVideoViewed(topic, videoId)
+  }
+
 
   const handleNextQuiz = () => {
     if (!quiz?.questions?.length) return
@@ -134,7 +179,6 @@ export default function Course() {
   const canvasStorageKey = useMemo(() => `canvas-${topic}-embedded`, [topic])
 
   useEffect(() => {
-    setActiveVideo(course.videos[0])
     setActiveTab('Videos')
     setQuizIndex(0)
     setShowAnswer(false)
@@ -192,50 +236,116 @@ export default function Course() {
         </div>
 
         {activeTab === 'Videos' && (
-          <div className="mt-12 grid gap-8 lg:grid-cols-[1.2fr_0.8fr]">
-            <div className="space-y-6">
-              <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-                <div className="h-64 rounded-2xl bg-gradient-to-br from-slate-100 to-slate-50" />
-                <div className="mt-6">
-                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
-                    Now playing
-                  </p>
-                  <h3 className="mt-2 text-2xl font-semibold text-ink">{activeVideo.title}</h3>
-                  <p className="mt-2 text-sm text-slate-500">{activeVideo.channel}</p>
+          <div className="mt-12 grid gap-8 xl:grid-cols-[1.6fr_1fr]">
+            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+              {loading ? (
+                <div className="flex h-[360px] items-center justify-center">
+                  <p className="text-slate-500">Loading videos...</p>
                 </div>
-              </div>
-              <div className="rounded-3xl border border-slate-100 bg-cloud p-6">
-                <p className="text-sm font-semibold text-slate-400">Next up</p>
-                <div className="mt-4 space-y-4">
-                  {course.videos.slice(1, 4).map((video) => (
-                    <div key={video.id} className="flex items-center justify-between gap-4">
-                      <div>
-                        <p className="text-base font-semibold text-ink">{video.title}</p>
-                        <p className="text-sm text-slate-500">{video.channel}</p>
+              ) : activeVideo ? (
+                <>
+                  <div className="relative overflow-hidden rounded-2xl bg-black">
+                    {!embedError ? (
+                      <iframe
+                        src={`https://www.youtube.com/embed/${activeVideo.id}?autoplay=0&rel=0&modestbranding=1`}
+                        title={activeVideo.title}
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                        allowFullScreen
+                        referrerPolicy="strict-origin-when-cross-origin"
+                        className="aspect-video w-full"
+                        onError={() => setEmbedError(true)}
+                      />
+                    ) : (
+                      <div className="relative aspect-video w-full">
+                        <img
+                          src={activeVideo.thumbnail}
+                          alt={activeVideo.title}
+                          className="h-full w-full object-cover"
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                          <a
+                            href={activeVideo.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-2 rounded-full bg-white px-6 py-3 text-sm font-semibold text-slate-900 shadow-lg transition hover:bg-slate-50"
+                          >
+                            <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
+                              <path d="M8 5v14l11-7z" />
+                            </svg>
+                            Watch on YouTube
+                          </a>
+                        </div>
                       </div>
-                      <SecondaryButton onClick={() => setActiveVideo(video)}>Watch</SecondaryButton>
+                    )}
+                  </div>
+
+                  <div className="mt-5 space-y-3">
+                    <div>
+                      <h3 className="text-xl font-semibold text-ink">{activeVideo.title}</h3>
+                      <p className="mt-1 text-sm text-slate-500">
+                        {activeVideo.channel} • {activeVideo.duration} • {activeVideo.views?.toLocaleString()} views
+                      </p>
                     </div>
-                  ))}
+                    <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                      <p className="text-sm font-semibold text-slate-600">Description</p>
+                      <p className="mt-2 text-sm text-slate-600 line-clamp-3">{activeVideo.description}</p>
+                    </div>
+                    {activeVideo.tags?.length ? (
+                      <div className="flex flex-wrap gap-2">
+                        {activeVideo.tags.map((tag) => (
+                          <span
+                            key={tag}
+                            className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-500"
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                </>
+              ) : (
+                <div className="flex h-[360px] items-center justify-center text-slate-500">
+                  No videos available for this topic yet.
                 </div>
-              </div>
+              )}
             </div>
 
-            <div className="space-y-6">
-              {course.videos.map((video) => (
-                <div key={video.id} className="rounded-3xl border border-slate-100 bg-white p-6 transition hover:-translate-y-1 hover:shadow-lift">
-                  <div className="h-28 rounded-2xl bg-gradient-to-br from-slate-100 to-slate-50" />
-                  <div className="mt-4">
-                    <p className="text-sm font-semibold text-ink">{video.title}</p>
-                    <p className="mt-1 text-xs text-slate-500">
-                      {video.channel} • {video.duration}
-                    </p>
-                    <p className="mt-2 text-sm text-slate-500">{video.why}</p>
-                  </div>
-                  <SecondaryButton onClick={() => setActiveVideo(video)} className="mt-4">
-                    Watch
-                  </SecondaryButton>
-                </div>
-              ))}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold text-slate-500">Recommended for {topic}</p>
+                <span className="text-xs font-semibold text-slate-400">{recommendations.length} picks</span>
+              </div>
+
+              <div className="space-y-3">
+                {recommendations.map((video) => (
+                  <button
+                    key={video.id}
+                    onClick={() => handleVideoClick(video.id)}
+                    className="group flex w-full items-start gap-3 rounded-2xl border border-slate-100 bg-white p-2 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+                  >
+                    <div className="overflow-hidden rounded-xl">
+                      <img
+                        src={video.thumbnail}
+                        alt={video.title}
+                        className="h-20 w-32 object-cover transition group-hover:scale-[1.02]"
+                      />
+                    </div>
+                    <div className="flex flex-1 flex-col gap-1">
+                      <p className="text-sm font-semibold text-ink leading-snug line-clamp-2">{video.title}</p>
+                      <p className="text-xs font-semibold text-slate-500">
+                        {video.channel} • {video.duration}
+                      </p>
+                      <p className="text-xs text-slate-500 line-clamp-2">{video.description}</p>
+                    </div>
+                  </button>
+                ))}
+                {!recommendations.length && videos.length > 0 && (
+                  <p className="rounded-2xl border border-slate-100 bg-white p-4 text-sm text-slate-500">
+                    Watch more videos to see recommendations.
+                  </p>
+                )}
+              </div>
             </div>
           </div>
         )}
