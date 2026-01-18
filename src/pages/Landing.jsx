@@ -42,9 +42,6 @@ export default function Landing() {
             <Link to="/learn">
               <PrimaryButton className="px-8 py-3.5 text-base">Start learning</PrimaryButton>
             </Link>
-            <Link to="/course/calculus">
-              <SecondaryButton className="px-8 py-3.5 text-base">See how it works</SecondaryButton>
-            </Link>
           </div>
         </div>
         <div className="grid gap-6 md:grid-cols-3">
