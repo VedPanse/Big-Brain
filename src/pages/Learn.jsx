@@ -6,6 +6,14 @@ import { topics } from '../data/topics'
 
 const COURSE_STORAGE_KEY = 'bb-active-courses'
 
+const normalizeCourseKey = (slug, customTopic) => {
+  const normalizedTopic = (customTopic || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+  return `${slug}::${normalizedTopic}`
+}
+
 export default function Learn() {
   const [query, setQuery] = useState('')
   const [activeCourses, setActiveCourses] = useState([])
@@ -14,7 +22,16 @@ export default function Learn() {
     try {
       const raw = localStorage.getItem(COURSE_STORAGE_KEY)
       const parsed = raw ? JSON.parse(raw) : []
-      setActiveCourses(Array.isArray(parsed) ? parsed : [])
+      const list = Array.isArray(parsed) ? parsed : []
+      const deduped = []
+      const seen = new Set()
+      list.forEach((course) => {
+        const key = course?.key || normalizeCourseKey(course?.slug, course?.customTopic)
+        if (!key || seen.has(key)) return
+        seen.add(key)
+        deduped.push({ ...course, key })
+      })
+      setActiveCourses(deduped)
     } catch {
       setActiveCourses([])
     }
@@ -37,9 +54,8 @@ export default function Learn() {
   const handleRemoveCourse = (event, target) => {
     event.preventDefault()
     event.stopPropagation()
-    const next = activeCourses.filter(
-      (course) => !(course.slug === target.slug && course.customTopic === target.customTopic),
-    )
+    const targetKey = target.key || normalizeCourseKey(target.slug, target.customTopic)
+    const next = activeCourses.filter((course) => course.key !== targetKey)
     setActiveCourses(next)
     try {
       localStorage.setItem(COURSE_STORAGE_KEY, JSON.stringify(next))
@@ -64,17 +80,26 @@ export default function Learn() {
         transition={{ type: 'spring', stiffness: 120, damping: 18 }}
         className="mx-auto w-full max-w-6xl px-6 py-16"
       >
-        <div className="space-y-6">
-          <h1 className="text-4xl font-semibold tracking-[-0.02em] text-ink md:text-5xl">
-            What do you want to learn?
-          </h1>
-          <input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            onKeyPress={handleKeyPress}
-            placeholder="Search topics (e.g., derivatives, pointers, transformers) - Press Enter to search any topic"
-            className="w-full rounded-2xl border border-slate-200 px-5 py-4 text-base text-slate-700 outline-none transition focus:border-slate-300"
-          />
+        <div className="grid gap-6 lg:grid-cols-[1.1fr_0.4fr] lg:items-center">
+          <div className="space-y-6">
+            <h1 className="text-4xl font-semibold tracking-[-0.02em] text-ink md:text-5xl">
+              What do you want to learn?
+            </h1>
+            <input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              onKeyPress={handleKeyPress}
+              placeholder="Search topics (e.g., derivatives, pointers, transformers) - Press Enter to search any topic"
+              className="w-full rounded-2xl border border-slate-200 px-5 py-4 text-base text-slate-700 outline-none transition focus:border-slate-300"
+            />
+          </div>
+          <div className="flex items-center justify-center lg:justify-end">
+            <img
+              src="/logo.png"
+              alt="Big Brain mascot"
+              className="w-32 max-w-full object-contain md:w-36"
+            />
+          </div>
         </div>
 
         {filtered.length === 0 && query && (

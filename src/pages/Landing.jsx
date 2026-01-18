@@ -47,7 +47,7 @@ export default function Landing() {
           </div>
           <div className="flex items-center justify-center">
             <img
-              src="/public/logo.webp"
+              src="/logo.png"
               alt="Big Brain logo"
               className="w-full max-w-xs object-contain"
             />

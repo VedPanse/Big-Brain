@@ -43,15 +43,20 @@ app.post('/api/quizzes/generate', upload.any(), async (req, res) => {
     if (files.length) {
       const chunks = await Promise.all(
         files.map(async (file) => {
-          const buffer = await fs.readFile(file.path)
-          const ext = path.extname(file.originalname).toLowerCase()
-          if (ext === '.pdf') {
-            return extractTextFromPdf(buffer)
+          try {
+            const buffer = await fs.readFile(file.path)
+            const ext = path.extname(file.originalname).toLowerCase()
+            if (ext === '.pdf') {
+              return extractTextFromPdf(buffer)
+            }
+            if (ext === '.docx') {
+              return extractTextFromDocx(buffer)
+            }
+            return ''
+          } catch (error) {
+            console.warn(`Failed to extract ${file.originalname}:`, error.message)
+            return ''
           }
-          if (ext === '.docx') {
-            return extractTextFromDocx(buffer)
-          }
-          throw new Error(`Unsupported file type: ${file.originalname}`)
         }),
       )
       sourceText = chunks.filter(Boolean).join('\n\n')

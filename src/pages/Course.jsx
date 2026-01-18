@@ -13,6 +13,24 @@ import { searchYoutubeVideos, recommendVideos, getVideoTranscript } from '../ser
 const tabs = ['Videos', 'Quizzes', 'Canvas']
 const COURSE_STORAGE_KEY = 'bb-active-courses'
 
+const normalizeCourseKey = (slug, customTopic) => {
+  const normalizedTopic = (customTopic || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+  return `${slug}::${normalizedTopic}`
+}
+
+const titleize = (value) => {
+  if (!value) return ''
+  return value
+    .split(' ')
+    .map((word) => (word ? `${word[0].toUpperCase()}${word.slice(1)}` : ''))
+    .join(' ')
+}
+
+const slugToTitle = (slug) => titleize(slug.replace(/-/g, ' '))
+
 export default function Course() {
   const { topic } = useParams()
   const { storeQuizWithSource, getViewedVideosForTopic, markVideoViewed, unmarkVideoViewed } = useLearning()
@@ -20,9 +38,10 @@ export default function Course() {
   // Check if this is a custom topic from URL params
   const searchParams = new URLSearchParams(window.location.search)
   const customTopicName = searchParams.get('customTopic')
-  const displayTopic = customTopicName || topic
-  
   const course = courseStubs[topic] || courseStubs.calculus
+  const hasStub = Boolean(courseStubs[topic])
+  const resolvedTitle = customTopicName || (hasStub ? course.title : slugToTitle(topic))
+  const displayTopic = resolvedTitle || topic
   const [activeTab, setActiveTab] = useState('Videos')
   const [videos, setVideos] = useState([])
   const [loading, setLoading] = useState(true)
@@ -41,6 +60,7 @@ export default function Course() {
   const [error, setError] = useState('')
   const [embedError, setEmbedError] = useState(false)
   const [loadingMessage, setLoadingMessage] = useState('')
+  const [showConfetti, setShowConfetti] = useState(false)
 
   const activeQuestion = quiz?.questions?.[quizIndex]
   const selectedChoice = activeQuestion ? responses[activeQuestion.id]?.value : null
@@ -78,13 +98,14 @@ export default function Course() {
       slug: topic,
       title: displayTopic || course.title,
       customTopic: customTopicName || '',
+      key: normalizeCourseKey(topic, customTopicName),
       lastOpenedAt: new Date().toISOString(),
     }
     try {
       const raw = localStorage.getItem(COURSE_STORAGE_KEY)
       const existing = raw ? JSON.parse(raw) : []
       const filtered = Array.isArray(existing)
-        ? existing.filter((item) => item.slug !== entry.slug || item.customTopic !== entry.customTopic)
+        ? existing.filter((item) => item?.key !== entry.key)
         : []
       const next = [entry, ...filtered].slice(0, 8)
       localStorage.setItem(COURSE_STORAGE_KEY, JSON.stringify(next))
@@ -147,7 +168,7 @@ export default function Course() {
       const formData = new FormData()
       formData.append('num_questions', '5')
       formData.append('difficulty', 'medium')
-      formData.append('topic', displayTopic || course.title || topic)
+      formData.append('topic', resolvedTitle || course.title || topic)
 
       const sources = []
       let combinedContext = []
@@ -223,7 +244,7 @@ export default function Course() {
       const sourceMetadata = {
         sources: sources.length > 0 ? sources : [],
         sourceCount: sources.length,
-        combinedDescription: sources.length > 0 ? combinedContext.join(' + ') : `Topic-driven: ${displayTopic || course.title || topic}`,
+        combinedDescription: sources.length > 0 ? combinedContext.join(' + ') : `Topic-driven: ${resolvedTitle || course.title || topic}`,
       }
       
       storeQuizWithSource(sourceType, sourceId, sourceMetadata, quizData)
@@ -288,7 +309,7 @@ export default function Course() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           quizId: quiz.id,
-          topic: topicInput || course.title,
+          topic: displayTopic || course.title,
           quiz,
           responses,
         }),
@@ -299,6 +320,11 @@ export default function Course() {
       }
       const data = await response.json()
       setResult(data.result)
+      setQuiz(null)
+      setQuizIndex(0)
+      setResponses({})
+      setShowAnswer(false)
+      setShowConfetti(true)
       await fetchHistoryAndReport()
     } catch (err) {
       setError(err.message)
@@ -324,6 +350,12 @@ export default function Course() {
     fetchHistoryAndReport().catch(() => {})
   }, [activeTab])
 
+  useEffect(() => {
+    if (!showConfetti) return
+    const timer = setTimeout(() => setShowConfetti(false), 2400)
+    return () => clearTimeout(timer)
+  }, [showConfetti])
+
   return (
     <div className="min-h-screen bg-white">
       <NavBar />
@@ -337,9 +369,13 @@ export default function Course() {
           <div>
             <p className="text-sm font-semibold text-slate-400">Course</p>
             <h1 className="mt-3 text-4xl font-semibold tracking-[-0.02em] text-ink md:text-5xl">
-              {customTopicName || course.title}
+              {resolvedTitle}
             </h1>
-            <p className="mt-2 text-xl text-ash">{customTopicName ? `Videos and resources for ${customTopicName}` : course.subtitle}</p>
+            <p className="mt-2 text-xl text-ash">
+              {customTopicName || !hasStub
+                ? `Videos and resources for ${resolvedTitle}`
+                : course.subtitle}
+            </p>
           </div>
 
           <div className="flex w-full flex-wrap items-center gap-3">
@@ -356,9 +392,6 @@ export default function Course() {
                 </button>
               ))}
             </div>
-            <Link to="/diagnostic" className="text-sm font-semibold text-slate-400 hover:text-slate-600">
-              Optional: personalize
-            </Link>
           </div>
         </div>
 
@@ -488,9 +521,13 @@ export default function Course() {
                       )}
                       <div className="overflow-hidden rounded-xl">
                         <img
-                          src={video.thumbnail}
+                          src={video.thumbnail || '/logo.png'}
                           alt={video.title}
                           className="h-20 w-32 object-cover transition group-hover:scale-[1.02]"
+                          onError={(event) => {
+                            event.currentTarget.onerror = null
+                            event.currentTarget.src = '/logo.png'
+                          }}
                         />
                       </div>
                       <div className="flex flex-1 flex-col gap-1">
@@ -634,11 +671,26 @@ export default function Course() {
 
               {error && <p className="mt-4 text-sm font-semibold text-red-500">{error}</p>}
 
-              {!quiz && (
+              {!quiz && !result && (
                 <div className="mt-10 rounded-3xl p-10 text-center">
                   <p className="text-base font-semibold text-slate-500">
                     Generate a new quiz to begin.
                   </p>
+                </div>
+              )}
+
+              {!quiz && result && (
+                <div className="relative mt-10 overflow-hidden rounded-3xl border border-slate-200 bg-white p-10 text-center shadow-sm">
+                  {showConfetti && (
+                    <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-4xl">
+                      🎉✨🎉
+                    </div>
+                  )}
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Report card</p>
+                  <p className="mt-3 text-2xl font-semibold text-ink">
+                    {result.correct}/{result.total}
+                  </p>
+                  <p className="mt-2 text-sm text-slate-500">{result.percentage}% correct</p>
                 </div>
               )}
 
