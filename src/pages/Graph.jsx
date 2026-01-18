@@ -53,6 +53,7 @@ export default function Graph({ embedded = false, forcePerformanceMode = false }
           forcePerformanceMode={forcePerformanceMode}
           nodeSizeScale={nodeSizeScale}
           fontScale={fontScale}
+          showPerfToggle={!embedded}
           onSelect={(node) => setSelected(node)}
         />
       </motion.div>

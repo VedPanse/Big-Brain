@@ -99,6 +99,7 @@ export default function ObsidianLearningGraph({
   forcePerformanceMode = false,
   nodeSizeScale = 1,
   fontScale = 1,
+  showPerfToggle = true,
 }) {
   const fgRef = useRef(null)
   const containerRef = useRef(null)
@@ -364,7 +365,7 @@ export default function ObsidianLearningGraph({
         </button>
       </div>
 
-      {showPerfPrompt && !effectivePerf && (
+      {showPerfToggle && showPerfPrompt && !effectivePerf && (
         <button
           type="button"
           onClick={() => setPerfMode(true)}
