@@ -49,7 +49,7 @@ export default function Landing() {
             <img
               src="/logo.png"
               alt="Big Brain logo"
-              className="w-full max-w-xs object-contain"
+              className="w-full max-w-xs object-contain mascot-excited"
             />
           </div>
         </div>

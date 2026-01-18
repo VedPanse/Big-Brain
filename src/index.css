@@ -66,3 +66,75 @@ body {
     transform: translateY(0);
   }
 }
+
+/* Mascot Animations */
+.mascot-bounce {
+  animation: bounce 2s infinite cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-20px);
+  }
+}
+
+.mascot-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-15px);
+  }
+}
+
+.mascot-pulse {
+  animation: mascotPulse 2s ease-in-out infinite;
+}
+
+@keyframes mascotPulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+.mascot-excited {
+  animation: excited 2s ease-in-out infinite;
+}
+
+@keyframes excited {
+  0%, 100% {
+    transform: scale(1) translateY(0);
+  }
+  25% {
+    transform: scale(1.03) translateY(-8px) rotate(-2deg);
+  }
+  50% {
+    transform: scale(1) translateY(0);
+  }
+  75% {
+    transform: scale(1.03) translateY(-8px) rotate(2deg);
+  }
+}
+
+.mascot-glow {
+  animation: glow 2s ease-in-out infinite;
+}
+
+@keyframes glow {
+  0%, 100% {
+    filter: drop-shadow(0 0 5px rgba(47, 107, 255, 0.3));
+  }
+  50% {
+    filter: drop-shadow(0 0 20px rgba(47, 107, 255, 0.6));
+  }
+}

@@ -183,7 +183,7 @@ export default function Learn() {
               <img
                 src={query.trim() ? '/logo-smile.png' : '/logo.png'}
                 alt="Big Brain mascot"
-                className={`pointer-events-none absolute -right-5 top-0 z-10 w-32 -translate-y-1/2 object-contain transition-transform duration-500 ease-out md:w-40 ${
+                className={`pointer-events-none absolute -right-5 top-0 z-10 w-32 -translate-y-1/2 object-contain transition-transform duration-500 ease-out md:w-40 mascot-float ${
                   query.trim() ? 'rotate-[12deg] -translate-x-1 -translate-y-[60%]' : 'rotate-[8deg]'
                 }`}
               />
