@@ -16,6 +16,7 @@ const defaultState = {
   answers: [],
   currentNodeId: courseNodes[0]?.id || null,
   diagnosticCompleted: false,
+  viewedVideosByTopic: {}, // topic -> [videoIds]
 }
 
 export function LearningProvider({ children }) {
@@ -58,6 +59,37 @@ export function LearningProvider({ children }) {
       setState(defaultState)
     }
 
+    const markVideoViewed = (topic, videoId) => {
+      setState((prev) => {
+        const topicViews = prev.viewedVideosByTopic[topic] || []
+        if (topicViews.includes(videoId)) return prev // Already tracked
+        return {
+          ...prev,
+          viewedVideosByTopic: {
+            ...prev.viewedVideosByTopic,
+            [topic]: [...topicViews, videoId],
+          },
+        }
+      })
+    }
+
+    const unmarkVideoViewed = (topic, videoId) => {
+      setState((prev) => {
+        const topicViews = prev.viewedVideosByTopic[topic] || []
+        return {
+          ...prev,
+          viewedVideosByTopic: {
+            ...prev.viewedVideosByTopic,
+            [topic]: topicViews.filter((id) => id !== videoId),
+          },
+        }
+      })
+    }
+
+    const getViewedVideosForTopic = (topic) => {
+      return state.viewedVideosByTopic[topic] || []
+    }
+
     return {
       ...state,
       courseNodes,
@@ -65,6 +97,9 @@ export function LearningProvider({ children }) {
       setCurrentNode,
       updateMastery,
       resetLearning,
+      markVideoViewed,
+      unmarkVideoViewed,
+      getViewedVideosForTopic,
     }
   }, [state])
 
