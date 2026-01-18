@@ -257,59 +257,65 @@ export default function Learn() {
           )}
         </div>
 
-        <div className="mt-12">
-          <div className="border-t border-slate-100" />
-          <div className="mt-8">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
-              Recommendations
-            </p>
-            <h2 className="mt-2 text-2xl font-semibold text-ink">Recommendations</h2>
-          </div>
-        </div>
+        {(recommendations.length > 0 || query.trim()) && (
+          <>
+            <div className="mt-12">
+              <div className="border-t border-slate-100" />
+              <div className="mt-8">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
+                  Recommendations
+                </p>
+                <h2 className="mt-2 text-2xl font-semibold text-ink">
+                  {recommendations.length > 0 ? 'Recommendations' : 'Topics'}
+                </h2>
+              </div>
+            </div>
 
-        <div className="mt-8 grid gap-6 md:grid-cols-3">
-          {(recommendations.length ? recommendations : filtered.map((topic) => topic.title)).map(
-            (item) => {
-              if (recommendations.length) {
-                const title = normalizeTitle(String(item))
-                const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
-                return (
-                  <Link key={slug} to={`/course/${slug}?customTopic=${encodeURIComponent(title)}`}>
-                    <div className="group rounded-3xl border border-slate-100 bg-cloud p-6 transition hover:-translate-y-1 hover:shadow-lift">
-                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
-                        Suggested
-                      </p>
-                      <h3 className="mt-4 text-xl font-semibold text-ink">{title}</h3>
-                      <p className="mt-3 text-sm text-slate-500">Built from your current courses.</p>
-                    </div>
-                  </Link>
-                )
-              }
-              const topic = topics.find((topic) => topic.title === item)
-              if (!topic) return null
-              return (
-                <Link key={topic.slug} to={`/course/${topic.slug}`}>
-                  <div className="group rounded-3xl border border-slate-100 bg-cloud p-6 transition hover:-translate-y-1 hover:shadow-lift">
-                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
-                      {topic.title}
-                    </p>
-                    <h3 className="mt-4 text-xl font-semibold text-ink">{topic.summary}</h3>
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      {topic.modules.map((module) => (
-                        <span
-                          key={module}
-                          className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-500"
-                        >
-                          {module}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </Link>
-              )
-            },
-          )}
-        </div>
+            <div className="mt-8 grid gap-6 md:grid-cols-3">
+              {(recommendations.length ? recommendations : filtered.map((topic) => topic.title)).map(
+                (item) => {
+                  if (recommendations.length) {
+                    const title = normalizeTitle(String(item))
+                    const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+                    return (
+                      <Link key={slug} to={`/course/${slug}?customTopic=${encodeURIComponent(title)}`}>
+                        <div className="group rounded-3xl border border-slate-100 bg-cloud p-6 transition hover:-translate-y-1 hover:shadow-lift">
+                          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
+                            Suggested
+                          </p>
+                          <h3 className="mt-4 text-xl font-semibold text-ink">{title}</h3>
+                          <p className="mt-3 text-sm text-slate-500">Built from your current courses.</p>
+                        </div>
+                      </Link>
+                    )
+                  }
+                  const topic = topics.find((topic) => topic.title === item)
+                  if (!topic) return null
+                  return (
+                    <Link key={topic.slug} to={`/course/${topic.slug}`}>
+                      <div className="group rounded-3xl border border-slate-100 bg-cloud p-6 transition hover:-translate-y-1 hover:shadow-lift">
+                        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
+                          {topic.title}
+                        </p>
+                        <h3 className="mt-4 text-xl font-semibold text-ink">{topic.summary}</h3>
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          {topic.modules.map((module) => (
+                            <span
+                              key={module}
+                              className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-500"
+                            >
+                              {module}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    </Link>
+                  )
+                },
+              )}
+            </div>
+          </>
+        )}
       </motion.section>
     </div>
   )
