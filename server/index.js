@@ -32,25 +32,29 @@ const quizzes = new Map()
 
 app.use(express.json({ limit: '1mb' }))
 
-app.post('/api/quizzes/generate', upload.single('file'), async (req, res) => {
+app.post('/api/quizzes/generate', upload.any(), async (req, res) => {
   const { topic, num_questions, difficulty } = req.body
-  const file = req.file
+  const files = Array.isArray(req.files) ? req.files : []
 
   try {
     await fs.mkdir(tmpDir, { recursive: true })
 
     let sourceText = ''
-    if (file) {
-      const buffer = await fs.readFile(file.path)
-      const ext = path.extname(file.originalname).toLowerCase()
-
-      if (ext === '.pdf') {
-        sourceText = await extractTextFromPdf(buffer)
-      } else if (ext === '.docx') {
-        sourceText = await extractTextFromDocx(buffer)
-      } else {
-        return res.status(400).json({ error: 'Unsupported file type.' })
-      }
+    if (files.length) {
+      const chunks = await Promise.all(
+        files.map(async (file) => {
+          const buffer = await fs.readFile(file.path)
+          const ext = path.extname(file.originalname).toLowerCase()
+          if (ext === '.pdf') {
+            return extractTextFromPdf(buffer)
+          }
+          if (ext === '.docx') {
+            return extractTextFromDocx(buffer)
+          }
+          throw new Error(`Unsupported file type: ${file.originalname}`)
+        }),
+      )
+      sourceText = chunks.filter(Boolean).join('\n\n')
     }
 
     if (!topic && !sourceText) {
@@ -71,9 +75,9 @@ app.post('/api/quizzes/generate', upload.single('file'), async (req, res) => {
   } catch (error) {
     res.status(500).json({ error: error.message || 'Failed to generate quiz.' })
   } finally {
-    if (file?.path) {
-      await fs.rm(file.path, { force: true })
-    }
+    await Promise.all(
+      files.map((file) => fs.rm(file.path, { force: true }).catch(() => {})),
+    )
   }
 })
 
