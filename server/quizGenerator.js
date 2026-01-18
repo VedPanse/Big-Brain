@@ -1,4 +1,5 @@
 import OpenAI from 'openai'
+import { withActiveSpan, promptVariant } from './tracing.js'
 
 const ensureString = (value, fallback = '') => (typeof value === 'string' ? value : fallback)
 
@@ -64,13 +65,30 @@ const parseQuizJson = (content) => {
   }
 }
 
-export async function generateQuiz({ apiKey, topic, sourceText, numQuestions, difficulty }) {
-  const openai = new OpenAI({ apiKey })
-  const focus = sourceText
-    ? `Use the following document excerpt as the primary source:\n\n${sourceText.slice(0, 6000)}`
-    : `Topic focus: ${topic}`
+const buildMessages = ({ variant, numQuestions, difficulty, focus }) => {
+  if (variant === 'B') {
+    return [
+      {
+        role: 'system',
+        content: [
+          'You generate concise multiple-choice quizzes.',
+          'Respond with JSON only. No prose, no markdown, no code fences.',
+          'If required fields are missing, fix them yourself.',
+        ].join(' '),
+      },
+      {
+        role: 'user',
+        content: [
+          `Create a ${difficulty} difficulty quiz with exactly ${numQuestions} questions.`,
+          focus,
+          'Return a JSON object that matches the schema: {"id":"quiz_x","questions":[{"id":"q1","prompt":"...","choices":[{"id":"a","text":"..."},{"id":"b","text":"..."},{"id":"c","text":"..."},{"id":"d","text":"..."}],"answerKey":{"value":"a"},"explanation":"..."}]}.',
+          'Never include natural language outside the JSON value.',
+        ].join('\n'),
+      },
+    ]
+  }
 
-  const messages = [
+  return [
     {
       role: 'system',
       content:
@@ -81,19 +99,109 @@ export async function generateQuiz({ apiKey, topic, sourceText, numQuestions, di
       content: `Create a ${difficulty} difficulty quiz with ${numQuestions} questions.\n${focus}\n\nOutput JSON schema:\n{ "id": "quiz_x", "questions": [ { "id": "q1", "prompt": "...", "choices": [{"id":"a","text":"..."},{"id":"b","text":"..."},{"id":"c","text":"..."},{"id":"d","text":"..."}], "answerKey": {"value":"a"}, "explanation": "..." } ] }`,
     },
   ]
+}
 
-  const response = await openai.chat.completions.create({
-    model: 'gpt-4o-mini',
-    messages,
-    temperature: 0.2,
-    response_format: { type: 'json_object' },
-  })
-
-  const content = response.choices?.[0]?.message?.content?.trim()
-  if (!content) {
-    throw new Error('Empty response from quiz generator.')
+const buildResponseFormat = (variant, numQuestions) => {
+  if (variant !== 'B') {
+    return { type: 'json_object' }
   }
 
-  const parsed = parseQuizJson(content)
-  return normalizeQuiz(parsed)
+  const minItems = Number(numQuestions) || 5
+
+  return {
+    type: 'json_schema',
+    json_schema: {
+      name: 'quiz_schema',
+      schema: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          id: { type: 'string' },
+          questions: {
+            type: 'array',
+            minItems,
+            items: {
+              type: 'object',
+              additionalProperties: false,
+              properties: {
+                id: { type: 'string' },
+                prompt: { type: 'string' },
+                choices: {
+                  type: 'array',
+                  minItems: 4,
+                  maxItems: 4,
+                  items: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                      id: { type: 'string' },
+                      text: { type: 'string' },
+                    },
+                    required: ['id', 'text'],
+                  },
+                },
+                answerKey: {
+                  type: 'object',
+                  additionalProperties: false,
+                  properties: {
+                    value: { type: 'string' },
+                  },
+                  required: ['value'],
+                },
+                explanation: { type: 'string' },
+              },
+              required: ['id', 'prompt', 'choices', 'answerKey'],
+            },
+          },
+        },
+        required: ['id', 'questions'],
+      },
+    },
+  }
+}
+
+export async function generateQuiz({ apiKey, topic, sourceText, numQuestions, difficulty, sourceType }) {
+  const variant = promptVariant || 'A'
+  const resolvedSourceType = sourceType || (sourceText ? 'document' : 'topic')
+
+  return withActiveSpan(
+    'quiz.generate',
+    {
+      'quiz.topic': topic || 'General',
+      'quiz.difficulty': difficulty || 'medium',
+      'quiz.num_questions': Number(numQuestions) || 5,
+      'quiz.source_type': resolvedSourceType,
+      'quiz.prompt_variant': variant,
+    },
+    async (span) => {
+      const openai = new OpenAI({ apiKey })
+      const focus = sourceText
+        ? `Use the following document excerpt as the primary source:\n\n${sourceText.slice(0, 6000)}`
+        : `Topic focus: ${topic}`
+
+      const messages = buildMessages({
+        variant,
+        numQuestions: Number(numQuestions) || 5,
+        difficulty: difficulty || 'medium',
+        focus,
+      })
+
+      const response = await openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages,
+        temperature: variant === 'B' ? 0.1 : 0.2,
+        response_format: buildResponseFormat(variant, numQuestions),
+      })
+
+      const content = response.choices?.[0]?.message?.content?.trim()
+      if (!content) {
+        throw new Error('Empty response from quiz generator.')
+      }
+
+      const parsed = parseQuizJson(content)
+      const normalized = normalizeQuiz(parsed)
+      span.setAttribute('quiz.questions.generated', normalized.questions.length)
+      return normalized
+    },
+  )
 }

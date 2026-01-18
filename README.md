@@ -233,3 +233,10 @@ Open the local URL printed in the terminal.
 
 The app runs a Node/Express backend on port 8000 with OpenAI-powered quiz generation.
 `npm run dev` starts both Vite and the API server.
+
+### Phoenix tracing quickcheck
+
+1. Install Phoenix locally: `pip install arize-phoenix && phoenix serve` (defaults to http://localhost:6006).
+2. Set `PHOENIX_COLLECTOR_ENDPOINT`, `PHOENIX_PROJECT_NAME`, and `PROMPT_VARIANT` in `.env` (see server/.env.example).
+3. Run the app: `npm run dev`, then generate a few quizzes and submit attempts.
+4. Open Phoenix UI at http://localhost:6006 and filter spans by `quiz.prompt_variant`, `quiz.topic`, or `quiz.score.percentage` to compare variants A vs B.
