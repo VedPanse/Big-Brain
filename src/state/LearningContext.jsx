@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { courseNodes } from '../data/mockCourse'
 
 const LearningContext = createContext(null)
@@ -18,6 +18,12 @@ const defaultState = {
   diagnosticCompleted: false,
   viewedVideosByTopic: {}, // topic -> [videoIds]
   quizzesBySource: {}, // sourceKey -> [quizzes with metadata]
+  learnerProfile: null,
+  learnerConceptState: {},
+  prereqEdges: [],
+  learnerContentState: {},
+  courseCatalog: [],
+  learnerUpdatedAt: null,
 }
 
 export function LearningProvider({ children }) {
@@ -33,6 +39,35 @@ export function LearningProvider({ children }) {
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
   }, [state])
+
+  const refreshLearnerProfile = useCallback(async () => {
+    const response = await fetch('/api/learner/profile')
+    if (!response.ok) return null
+    const data = await response.json()
+    setState((prev) => {
+      const conceptState = data.learner_concept_state || {}
+      const masteryMap = { ...prev.masteryMap }
+      Object.values(conceptState).forEach((concept) => {
+        if (!concept?.name) return
+        masteryMap[concept.name] = concept.mastery ?? masteryMap[concept.name] ?? 0
+      })
+      return {
+        ...prev,
+        masteryMap,
+        learnerProfile: data.learner_profile || null,
+        learnerConceptState: conceptState,
+        prereqEdges: data.prereq_edges || [],
+        learnerContentState: data.learner_content_state || {},
+        courseCatalog: data.course_catalog || [],
+        learnerUpdatedAt: data.learner_profile?.updatedAt || new Date().toISOString(),
+      }
+    })
+    return data
+  }, [])
+
+  useEffect(() => {
+    refreshLearnerProfile().catch(() => {})
+  }, [refreshLearnerProfile])
 
   const value = useMemo(() => {
     const completeDiagnostic = ({ masteryMap, fingerprint, answers }) => {
@@ -134,8 +169,9 @@ export function LearningProvider({ children }) {
       storeQuizWithSource,
       getQuizzesForSource,
       getAllQuizzes,
+      refreshLearnerProfile,
     }
-  }, [state])
+  }, [state, refreshLearnerProfile])
 
   return <LearningContext.Provider value={value}>{children}</LearningContext.Provider>
 }

@@ -3,6 +3,7 @@ import { motion } from 'framer-motion'
 import { Link, useNavigate } from 'react-router-dom'
 import NavBar from '../components/NavBar'
 import { topics } from '../data/topics'
+import { useLearning } from '../state/LearningContext'
 
 const COURSE_STORAGE_KEY = 'bb-active-courses'
 
@@ -16,10 +17,12 @@ const normalizeCourseKey = (slug, customTopic) => {
 
 export default function Learn() {
   const navigate = useNavigate()
+  const { learnerConceptState, prereqEdges, refreshLearnerProfile } = useLearning()
   const [query, setQuery] = useState('')
   const [activeCourses, setActiveCourses] = useState([])
-  const [recommendations, setRecommendations] = useState([])
+  const [courseRecommendations, setCourseRecommendations] = useState([])
   const [remoteSuggestions, setRemoteSuggestions] = useState([])
+  const [expandedWhy, setExpandedWhy] = useState(null)
 
   useEffect(() => {
     try {
@@ -41,35 +44,27 @@ export default function Learn() {
   }, [])
 
   useEffect(() => {
+    refreshLearnerProfile().catch(() => {})
+  }, [refreshLearnerProfile])
+
+  useEffect(() => {
     const fetchRecommendations = async () => {
-      if (!activeCourses.length) {
-        setRecommendations([])
-        return
-      }
       try {
-        const response = await fetch('/api/recommendations', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            courses: activeCourses.map((course) => ({
-              title: normalizeTitle(course.title),
-            })),
-            count: 6,
-          }),
-        })
+        const response = await fetch('/api/recommendations/course')
         if (!response.ok) {
           const message = await response.json().catch(() => ({}))
           throw new Error(message.error || 'Unable to load recommendations.')
         }
         const data = await response.json()
-        setRecommendations(Array.isArray(data.recommendations) ? data.recommendations : [])
+        const list = Array.isArray(data.recommendations) ? data.recommendations : []
+        setCourseRecommendations(list)
       } catch {
-        setRecommendations([])
+        setCourseRecommendations([])
       }
     }
 
     fetchRecommendations()
-  }, [activeCourses])
+  }, [])
 
   const filtered = useMemo(() => {
     const term = query.toLowerCase()
@@ -150,6 +145,36 @@ export default function Learn() {
   }
 
   const normalizeTitle = (value) => titleize(value.replace(/-/g, ' '))
+
+  const getConceptName = (id) => {
+    return learnerConceptState?.[id]?.name || titleize(String(id || '').replace(/-/g, ' '))
+  }
+
+  const getCoursePrereqs = (conceptIds) => {
+    const set = new Set(conceptIds || [])
+    const prereqs = (prereqEdges || [])
+      .filter((edge) => set.has(edge.to) && set.has(edge.from))
+      .map((edge) => edge.from)
+    return prereqs.length ? prereqs : Array.from(set)
+  }
+
+  const getBlockingConcepts = (conceptIds) => {
+    const prereqs = getCoursePrereqs(conceptIds)
+    const scored = prereqs.map((id) => ({
+      id,
+      mastery: learnerConceptState?.[id]?.mastery ?? 0.4,
+    }))
+    return scored
+      .filter((item) => item.mastery < 0.5)
+      .sort((a, b) => a.mastery - b.mastery)
+      .slice(0, 3)
+  }
+
+  const getReadinessStyles = (readiness) => {
+    if (readiness === 'Ready') return 'bg-green-100 text-green-700'
+    if (readiness === 'Needs Prep') return 'bg-amber-100 text-amber-700'
+    return 'bg-rose-100 text-rose-700'
+  }
 
   const getCourseLink = (course) => {
     if (course.customTopic) {
@@ -257,64 +282,114 @@ export default function Learn() {
           )}
         </div>
 
-        {(recommendations.length > 0 || query.trim()) && (
-          <>
-            <div className="mt-12">
-              <div className="border-t border-slate-100" />
-              <div className="mt-8">
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
-                  Recommendations
-                </p>
-                <h2 className="mt-2 text-2xl font-semibold text-ink">
-                  {recommendations.length > 0 ? 'Recommendations' : 'Topics'}
-                </h2>
-              </div>
+        {courseRecommendations.length > 0 && (
+          <div className="mt-12">
+            <div className="border-t border-slate-100" />
+            <div className="mt-8">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
+                Personalized
+              </p>
+              <h2 className="mt-2 text-2xl font-semibold text-ink">Recommended for you</h2>
             </div>
-
             <div className="mt-8 grid gap-6 md:grid-cols-3">
-              {(recommendations.length ? recommendations : filtered.map((topic) => topic.title)).map(
-                (item) => {
-                  if (recommendations.length) {
-                    const title = normalizeTitle(String(item))
-                    const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
-                    return (
-                      <Link key={slug} to={`/course/${slug}?customTopic=${encodeURIComponent(title)}`}>
-                        <div className="group rounded-3xl border border-slate-100 bg-cloud p-6 transition hover:-translate-y-1 hover:shadow-lift">
-                          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
-                            Suggested
-                          </p>
-                          <h3 className="mt-4 text-xl font-semibold text-ink">{title}</h3>
-                          <p className="mt-3 text-sm text-slate-500">Built from your current courses.</p>
-                        </div>
-                      </Link>
-                    )
-                  }
-                  const topic = topics.find((topic) => topic.title === item)
-                  if (!topic) return null
+              {[...courseRecommendations]
+                .sort((a, b) => b.recommendation_score - a.recommendation_score)
+                .map((course) => {
+                  const blocking = getBlockingConcepts(course.course_concepts || [])
                   return (
-                    <Link key={topic.slug} to={`/course/${topic.slug}`}>
+                    <Link key={course.courseId} to={`/course/${course.slug}`}>
                       <div className="group rounded-3xl border border-slate-100 bg-cloud p-6 transition hover:-translate-y-1 hover:shadow-lift">
-                        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
-                          {topic.title}
-                        </p>
-                        <h3 className="mt-4 text-xl font-semibold text-ink">{topic.summary}</h3>
-                        <div className="mt-4 flex flex-wrap gap-2">
-                          {topic.modules.map((module) => (
-                            <span
-                              key={module}
-                              className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-500"
-                            >
-                              {module}
-                            </span>
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
+                            Recommended
+                          </p>
+                          <span
+                            className={`rounded-full px-3 py-1 text-xs font-semibold ${getReadinessStyles(
+                              course.readiness,
+                            )}`}
+                          >
+                            {course.readiness}
+                          </span>
+                        </div>
+                        <h3 className="mt-4 text-xl font-semibold text-ink">{course.title}</h3>
+                        <div className="mt-3 space-y-2 text-sm text-slate-500">
+                          {(course.reasons_json || []).map((reason) => (
+                            <p key={reason}>• {reason}</p>
                           ))}
                         </div>
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.preventDefault()
+                            setExpandedWhy((prev) => (prev === course.courseId ? null : course.courseId))
+                          }}
+                          className="mt-4 text-xs font-semibold uppercase tracking-[0.2em] text-slate-400 hover:text-slate-600"
+                        >
+                          Why?
+                        </button>
+                        {expandedWhy === course.courseId && (
+                          <div className="mt-3 rounded-2xl border border-slate-100 bg-white p-3 text-xs text-slate-600">
+                            <p>Readiness: {course.readiness}</p>
+                            <p>Risk: {Math.round((course.risk || 0) * 100)}%</p>
+                            <p className="mt-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
+                              Blocking concepts
+                            </p>
+                            <div className="mt-1 flex flex-wrap gap-2">
+                              {blocking.length ? (
+                                blocking.map((concept) => (
+                                  <span
+                                    key={concept.id}
+                                    className="rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] font-semibold text-slate-500"
+                                  >
+                                    {getConceptName(concept.id)}
+                                  </span>
+                                ))
+                              ) : (
+                                <span className="text-[11px] text-slate-400">No blockers detected</span>
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </Link>
                   )
-                },
-              )}
+                })}
             </div>
-          </>
+          </div>
+        )}
+
+        {(filtered.length > 0 || query.trim()) && (
+          <div className="mt-12">
+            <div className="border-t border-slate-100" />
+            <div className="mt-8">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
+                Browse
+              </p>
+              <h2 className="mt-2 text-2xl font-semibold text-ink">Topics</h2>
+            </div>
+            <div className="mt-8 grid gap-6 md:grid-cols-3">
+              {filtered.map((topic) => (
+                <Link key={topic.slug} to={`/course/${topic.slug}`}>
+                  <div className="group rounded-3xl border border-slate-100 bg-cloud p-6 transition hover:-translate-y-1 hover:shadow-lift">
+                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
+                      {topic.title}
+                    </p>
+                    <h3 className="mt-4 text-xl font-semibold text-ink">{topic.summary}</h3>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {topic.modules.map((module) => (
+                        <span
+                          key={module}
+                          className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-500"
+                        >
+                          {module}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
         )}
       </motion.section>
     </div>

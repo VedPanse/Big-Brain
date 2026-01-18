@@ -1,0 +1,115 @@
+{
+  "learner_profile": {
+    "userId": "learner-1",
+    "name": "Ava",
+    "modality_json": {
+      "diagram": 0.5,
+      "text": 0.25,
+      "audio": 0.25
+    },
+    "updatedAt": "2026-01-18T04:56:29.871Z"
+  },
+  "learner_concept_state": {
+    "limits": {
+      "id": "limits",
+      "name": "Limits",
+      "mastery": 0.62,
+      "stability": 0.44,
+      "lastReviewedAt": "2026-01-12T04:56:29.871Z"
+    },
+    "derivatives": {
+      "id": "derivatives",
+      "name": "Derivatives",
+      "mastery": 0.38,
+      "stability": 0.32,
+      "lastReviewedAt": "2026-01-06T04:56:29.871Z"
+    },
+    "chain-rule": {
+      "id": "chain-rule",
+      "name": "Chain Rule",
+      "mastery": 0.28,
+      "stability": 0.3,
+      "lastReviewedAt": "2025-12-29T04:56:29.871Z"
+    },
+    "integrals": {
+      "id": "integrals",
+      "name": "Integrals",
+      "mastery": 0.55,
+      "stability": 0.4,
+      "lastReviewedAt": "2026-01-03T04:56:29.871Z"
+    },
+    "arrays": {
+      "id": "arrays",
+      "name": "Arrays",
+      "mastery": 0.72,
+      "stability": 0.62,
+      "lastReviewedAt": "2026-01-14T04:56:29.871Z"
+    },
+    "trees": {
+      "id": "trees",
+      "name": "Trees",
+      "mastery": 0.46,
+      "stability": 0.41,
+      "lastReviewedAt": "2026-01-09T04:56:29.871Z"
+    },
+    "graphs": {
+      "id": "graphs",
+      "name": "Graphs",
+      "mastery": 0.4,
+      "stability": 0.35,
+      "lastReviewedAt": "2025-12-31T04:56:29.871Z"
+    },
+    "regression": {
+      "id": "regression",
+      "name": "Linear Regression",
+      "mastery": 0.68,
+      "stability": 0.52,
+      "lastReviewedAt": "2026-01-11T04:56:29.871Z"
+    },
+    "backprop": {
+      "id": "backprop",
+      "name": "Backprop",
+      "mastery": 0.42,
+      "stability": 0.38,
+      "lastReviewedAt": "2026-01-04T04:56:29.871Z"
+    },
+    "attention": {
+      "id": "attention",
+      "name": "Attention",
+      "mastery": 0.33,
+      "stability": 0.31,
+      "lastReviewedAt": "2025-12-27T04:56:29.871Z"
+    }
+  },
+  "prereq_edges": [
+    {
+      "from": "limits",
+      "to": "derivatives"
+    },
+    {
+      "from": "derivatives",
+      "to": "chain-rule"
+    },
+    {
+      "from": "limits",
+      "to": "integrals"
+    },
+    {
+      "from": "arrays",
+      "to": "trees"
+    },
+    {
+      "from": "trees",
+      "to": "graphs"
+    },
+    {
+      "from": "regression",
+      "to": "backprop"
+    },
+    {
+      "from": "backprop",
+      "to": "attention"
+    }
+  ],
+  "learner_content_state": {}
+}

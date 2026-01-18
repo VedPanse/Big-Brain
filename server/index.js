@@ -9,6 +9,14 @@ import { generateQuiz } from './quizGenerator.js'
 import { scoreAttempt } from './scoreAttempt.js'
 import { extractTextFromDocx, extractTextFromPdf } from './documentExtractors.js'
 import { generateRecommendations } from './recommendations.js'
+import {
+  getLearnerProfile,
+  getCourseRecommendations,
+  getContentRecommendations,
+  getNextQuizFocus,
+  markContentViewed,
+  updateConceptsFromAttempt,
+} from './learnerModel.js'
 import OpenAI from 'openai'
 
 const envPath = path.resolve(process.cwd(), '.env')
@@ -93,7 +101,7 @@ app.post('/api/quizzes/generate', upload.any(), async (req, res) => {
 })
 
 app.post('/api/attempts/score-and-save', async (req, res) => {
-  const { quizId, topic, quiz, responses } = req.body || {}
+  const { quizId, topic, quiz, responses, courseId } = req.body || {}
   const resolvedQuiz = quiz || quizzes.get(quizId)
 
   if (!resolvedQuiz) {
@@ -117,6 +125,10 @@ app.post('/api/attempts/score-and-save', async (req, res) => {
     JSON.stringify(responses || {}),
     JSON.stringify(result),
   )
+
+  if (courseId) {
+    await updateConceptsFromAttempt({ courseId, score: (result.percentage || 0) / 100 })
+  }
 
   res.json({
     id: attemptId,
@@ -198,6 +210,60 @@ app.post('/api/recommendations', async (req, res) => {
     res.json({ recommendations })
   } catch (error) {
     res.status(500).json({ error: error.message || 'Failed to generate recommendations.' })
+  }
+})
+
+app.get('/api/learner/profile', async (_req, res) => {
+  try {
+    const profile = await getLearnerProfile()
+    res.json(profile)
+  } catch (error) {
+    res.status(500).json({ error: error.message || 'Failed to load learner profile.' })
+  }
+})
+
+app.get('/api/recommendations/course', async (_req, res) => {
+  try {
+    const recommendations = await getCourseRecommendations()
+    res.json({ recommendations })
+  } catch (error) {
+    res.status(500).json({ error: error.message || 'Failed to load course recommendations.' })
+  }
+})
+
+app.get('/api/recommendations/content', async (req, res) => {
+  const { courseId, conceptId } = req.query || {}
+  try {
+    const recommendations = await getContentRecommendations({
+      courseId: courseId || '',
+      conceptId: conceptId || '',
+    })
+    res.json({ recommendations })
+  } catch (error) {
+    res.status(500).json({ error: error.message || 'Failed to load content recommendations.' })
+  }
+})
+
+app.get('/api/quiz/next', async (req, res) => {
+  const { courseId } = req.query || {}
+  try {
+    const data = await getNextQuizFocus({ courseId: courseId || '' })
+    res.json(data)
+  } catch (error) {
+    res.status(500).json({ error: error.message || 'Failed to load quiz focus.' })
+  }
+})
+
+app.post('/api/learner/content-viewed', async (req, res) => {
+  const { contentId, lastResult } = req.body || {}
+  if (!contentId) {
+    return res.status(400).json({ error: 'contentId is required.' })
+  }
+  try {
+    const updated = await markContentViewed({ contentId, lastResult })
+    res.json({ contentId, state: updated })
+  } catch (error) {
+    res.status(500).json({ error: error.message || 'Failed to update content state.' })
   }
 })
 

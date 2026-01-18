@@ -9,21 +9,22 @@ import { useLearning } from '../state/LearningContext'
 const statusStyles = {
   mastered: 'bg-white/80 border-white/60 shadow-[0_0_18px_rgba(47,107,255,0.25)]',
   learning: 'bg-white/60 border-white/50 animate-pulse',
+  fragile: 'bg-white/70 border-amber-200/60 shadow-[0_0_18px_rgba(251,191,36,0.25)]',
   weak: 'bg-white/40 border-white/40 opacity-70 blur-[0.2px]',
 }
 
 export default function Graph() {
   const navigate = useNavigate()
-  const { courseNodes, masteryMap, setCurrentNode, fingerprint } = useLearning()
+  const { courseNodes, masteryMap, setCurrentNode, fingerprint, learnerConceptState } = useLearning()
   const [selected, setSelected] = useState(null)
 
   const recommended = useMemo(() => {
     return courseNodes.reduce((lowest, node) => {
-      const score = masteryMap[node.title] ?? 0
+      const score = learnerConceptState?.[node.id]?.mastery ?? masteryMap[node.title] ?? 0
       if (!lowest || score < lowest.score) return { node, score }
       return lowest
     }, null)
-  }, [courseNodes, masteryMap])
+  }, [courseNodes, learnerConceptState, masteryMap])
 
   const edges = useMemo(() => {
     return courseNodes.flatMap((node) =>
@@ -34,10 +35,11 @@ export default function Graph() {
     )
   }, [courseNodes])
 
-  const getStatus = (score) => {
+  const getStatus = (score, stability) => {
     if (score >= 0.7) return 'mastered'
-    if (score >= 0.45) return 'learning'
-    return 'weak'
+    if (score < 0.45) return 'weak'
+    if (stability < 0.5) return 'fragile'
+    return 'learning'
   }
 
   const handleOpen = (node) => {
@@ -73,8 +75,10 @@ export default function Graph() {
           ))}
         </svg>
         {courseNodes.map((node) => {
-          const score = masteryMap[node.title] ?? 0
-          const status = getStatus(score)
+          const concept = learnerConceptState?.[node.id]
+          const score = concept?.mastery ?? masteryMap[node.title] ?? 0
+          const stability = concept?.stability ?? 0.5
+          const status = getStatus(score, stability)
           const isRecommended = recommended?.node.id === node.id
           return (
             <button

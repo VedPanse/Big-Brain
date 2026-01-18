@@ -9,7 +9,7 @@ import CanvasToolbar from '../components/CanvasToolbar'
 import { courseStubs } from '../data/courseStubs'
 import { topics } from '../data/topics'
 import { useLearning } from '../state/LearningContext'
-import { searchYoutubeVideos, recommendVideos, getVideoTranscript } from '../services/youtubeService'
+import { getVideoTranscript } from '../services/youtubeService'
 
 const tabs = ['Videos', 'Quizzes', 'Canvas']
 const COURSE_STORAGE_KEY = 'bb-active-courses'
@@ -49,7 +49,17 @@ const normalizeCourseTitle = (customTopicName, topic, course, hasStub) => {
 
 export default function Course() {
   const { topic } = useParams()
-  const { storeQuizWithSource, getViewedVideosForTopic, markVideoViewed, unmarkVideoViewed } = useLearning()
+  const {
+    storeQuizWithSource,
+    getViewedVideosForTopic,
+    markVideoViewed,
+    unmarkVideoViewed,
+    learnerConceptState,
+    learnerProfile,
+    prereqEdges,
+    courseCatalog,
+    refreshLearnerProfile,
+  } = useLearning()
   
   // Check if this is a custom topic from URL params
   const searchParams = new URLSearchParams(window.location.search)
@@ -78,6 +88,9 @@ export default function Course() {
   const [loadingMessage, setLoadingMessage] = useState('')
   const [showConfetti, setShowConfetti] = useState(false)
   const [numQuestions, setNumQuestions] = useState(5)
+  const [selectedConceptId, setSelectedConceptId] = useState('')
+  const [quizFocus, setQuizFocus] = useState(null)
+  const [quizFocusLoading, setQuizFocusLoading] = useState(false)
 
   const activeQuestion = quiz?.questions?.[quizIndex]
   const selectedChoice = activeQuestion ? responses[activeQuestion.id]?.value : null
@@ -89,26 +102,37 @@ export default function Course() {
 
   const canvasStorageKey = `canvas-${topic}`
 
-  // Fetch videos for this topic on mount
+  // Fetch personalized content recommendations for this course
   useEffect(() => {
-    const fetchVideos = async () => {
+    const fetchRecommendations = async () => {
       setLoading(true)
       try {
-        // Use custom topic name if provided, otherwise use slug
-        const searchTerm = customTopicName || topic
-        const fetched = await searchYoutubeVideos(searchTerm, 20)
-        setVideos(fetched)
-        setActiveVideoId(fetched[0]?.id || null)
+        const params = new URLSearchParams({
+          userId: learnerProfile?.userId || 'learner-1',
+          courseId: topic,
+        })
+        if (selectedConceptId) {
+          params.set('conceptId', selectedConceptId)
+        }
+        const response = await fetch(`/api/recommendations/content?${params.toString()}`)
+        if (!response.ok) {
+          const message = await response.json().catch(() => ({}))
+          throw new Error(message.error || 'Unable to load content recommendations.')
+        }
+        const data = await response.json()
+        const list = Array.isArray(data.recommendations) ? data.recommendations : []
+        setVideos(list)
+        setActiveVideoId(list[0]?.id || null)
       } catch (error) {
-        console.error('Failed to fetch videos:', error)
+        console.error('Failed to fetch recommendations:', error)
         setVideos([])
       } finally {
         setLoading(false)
       }
     }
 
-    fetchVideos()
-  }, [topic, customTopicName])
+    fetchRecommendations()
+  }, [topic, selectedConceptId, learnerProfile?.userId])
 
   useEffect(() => {
     const entry = {
@@ -150,26 +174,80 @@ export default function Course() {
     return videos.filter(v => viewedIds.includes(v.id))
   }, [topic, getViewedVideosForTopic, videos])
 
-  const recommendations = useMemo(() => {
-    if (!activeVideo || !videos.length) return []
-    return recommendVideos(activeVideo, videos, viewedVideos, videos, 6)
-  }, [activeVideo, videos, viewedVideos])
+  const courseConcepts = useMemo(() => {
+    const entry = (courseCatalog || []).find(
+      (item) => item.id === topic || item.slug === topic,
+    )
+    const conceptIds = entry?.concepts || []
+    return conceptIds.map((id) => {
+      const concept = learnerConceptState?.[id]
+      return {
+        id,
+        name: concept?.name || titleize(String(id).replace(/-/g, ' ')),
+        mastery: concept?.mastery ?? 0.4,
+        stability: concept?.stability ?? 0.4,
+        lastReviewedAt: concept?.lastReviewedAt || null,
+      }
+    })
+  }, [courseCatalog, learnerConceptState, topic])
+
+  const getConceptStatus = (concept) => {
+    if (!concept) return 'learning'
+    if (concept.mastery >= 0.7) return 'mastered'
+    if (concept.mastery < 0.45) return 'weak'
+    if (concept.stability < 0.5) return 'fragile'
+    return 'learning'
+  }
+
+  const getPrereqNames = (conceptId) => {
+    const prereqs = (prereqEdges || [])
+      .filter((edge) => edge.to === conceptId)
+      .map((edge) => edge.from)
+    return prereqs
+      .map((id) => learnerConceptState?.[id]?.name || titleize(String(id).replace(/-/g, ' ')))
+      .filter(Boolean)
+  }
+
+  const selectedConcept = useMemo(() => {
+    return courseConcepts.find((concept) => concept.id === selectedConceptId) || null
+  }, [courseConcepts, selectedConceptId])
+
+  const conceptRecommendation = useMemo(() => {
+    if (!selectedConcept) return null
+    const status = getConceptStatus(selectedConcept)
+    if (status === 'weak') {
+      return 'Review prerequisites, then watch the top recommended video segment.'
+    }
+    if (status === 'fragile') {
+      return 'Take a targeted quiz and reinforce with a short video review.'
+    }
+    if (status === 'mastered') {
+      return 'Apply this concept in a quiz to keep it fresh.'
+    }
+    return 'Practice with a quiz, then revisit if needed.'
+  }, [selectedConcept])
 
   const handleVideoClick = (videoId) => {
     setActiveVideoId(videoId)
     setEmbedError(false)
   }
 
-  const handleToggleSeen = (videoId) => {
+  const handleToggleSeen = async (videoId) => {
     if (isVideoSeen(videoId)) {
       unmarkVideoViewed(topic, videoId)
-    } else {
-      markVideoViewed(topic, videoId)
+      return
     }
-  }
-
-  const handleMarkAsSeen = (videoId) => {
     markVideoViewed(topic, videoId)
+    try {
+      await fetch('/api/learner/content-viewed', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contentId: videoId }),
+      })
+      await refreshLearnerProfile()
+    } catch {
+      // ignore content tracking failures
+    }
   }
 
   const isVideoSeen = (videoId) => {
@@ -339,6 +417,7 @@ export default function Course() {
         body: JSON.stringify({
           quizId: quiz.id,
           topic: displayTopic || course.title,
+          courseId: topic,
           quiz,
           responses,
         }),
@@ -354,6 +433,7 @@ export default function Course() {
       setResponses({})
       setShowAnswer(false)
       setShowConfetti(data.result?.percentage > 50)
+      await refreshLearnerProfile()
       await fetchHistoryAndReport()
     } catch (err) {
       setError(err.message)
@@ -372,12 +452,39 @@ export default function Course() {
     setHistory([])
     setReport(null)
     setError('')
+    setSelectedConceptId('')
+    setQuizFocus(null)
   }, [course])
 
   useEffect(() => {
     if (activeTab !== 'Quizzes') return
     fetchHistoryAndReport().catch(() => {})
   }, [activeTab])
+
+  useEffect(() => {
+    if (activeTab !== 'Quizzes') return
+    const fetchQuizFocus = async () => {
+      setQuizFocusLoading(true)
+      try {
+        const params = new URLSearchParams({
+          userId: learnerProfile?.userId || 'learner-1',
+          courseId: topic,
+        })
+        const response = await fetch(`/api/quiz/next?${params.toString()}`)
+        if (!response.ok) {
+          const message = await response.json().catch(() => ({}))
+          throw new Error(message.error || 'Unable to load quiz focus.')
+        }
+        const data = await response.json()
+        setQuizFocus(data)
+      } catch {
+        setQuizFocus(null)
+      } finally {
+        setQuizFocusLoading(false)
+      }
+    }
+    fetchQuizFocus()
+  }, [activeTab, learnerProfile?.userId, topic])
 
   useEffect(() => {
     if (!showConfetti) return
@@ -473,7 +580,9 @@ export default function Course() {
                       <div className="flex-1">
                         <h3 className="text-xl font-semibold text-ink">{activeVideo.title}</h3>
                         <p className="mt-1 text-sm text-slate-500">
-                          {activeVideo.channel} • {activeVideo.duration} • {activeVideo.views?.toLocaleString()} views
+                          {activeVideo.channel} • {activeVideo.duration}
+                          {activeVideo.segment ? ` • Segment ${activeVideo.segment}` : ''}
+                          {activeVideo.views ? ` • ${activeVideo.views.toLocaleString()} views` : ''}
                         </p>
                       </div>
                       <button
@@ -528,12 +637,12 @@ export default function Course() {
 
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <p className="text-sm font-semibold text-slate-500">Recommended for {topic}</p>
-                <span className="text-xs font-semibold text-slate-400">{recommendations.length} picks</span>
+                <p className="text-sm font-semibold text-slate-500">Recommended segments</p>
+                <span className="text-xs font-semibold text-slate-400">{videos.length} picks</span>
               </div>
 
               <div className="space-y-3">
-                {recommendations.map((video) => {
+                {videos.map((video) => {
                   const isSeen = isVideoSeen(video.id)
                   return (
                     <button
@@ -564,17 +673,92 @@ export default function Course() {
                         <p className="text-xs font-semibold text-slate-500">
                           {video.channel} • {video.duration}
                         </p>
+                        {video.reason && (
+                          <span className="inline-flex w-fit rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-500">
+                            {video.reason}
+                          </span>
+                        )}
                         <p className="text-xs text-slate-500 line-clamp-2">{video.description}</p>
                       </div>
                     </button>
                   )
                 })}
-                {!recommendations.length && videos.length > 0 && (
+                {!videos.length && (
                   <p className="rounded-2xl border border-slate-100 bg-white p-4 text-sm text-slate-500">
-                    Watch more videos to see recommendations.
+                    No personalized segments available yet for this course.
                   </p>
                 )}
               </div>
+
+              {courseConcepts.length > 0 && (
+                <div className="mt-6 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-semibold text-slate-500">Concepts</p>
+                    <span className="text-xs font-semibold text-slate-400">
+                      Weak/fragile highlighted
+                    </span>
+                  </div>
+                  <div className="mt-3 space-y-2">
+                    {courseConcepts.map((concept) => {
+                      const status = getConceptStatus(concept)
+                      const isSelected = selectedConceptId === concept.id
+                      const statusStyles =
+                        status === 'mastered'
+                          ? 'border-slate-200 bg-slate-50 text-slate-400'
+                          : status === 'weak'
+                            ? 'border-rose-200 bg-rose-50 text-rose-700'
+                            : status === 'fragile'
+                              ? 'border-amber-200 bg-amber-50 text-amber-700'
+                              : 'border-slate-200 bg-white text-slate-600'
+                      return (
+                        <button
+                          key={concept.id}
+                          onClick={() => setSelectedConceptId(concept.id)}
+                          className={`flex w-full items-center justify-between rounded-2xl border px-3 py-2 text-left text-sm font-semibold transition hover:-translate-y-0.5 ${statusStyles} ${
+                            isSelected ? 'ring-2 ring-slate-200' : ''
+                          }`}
+                        >
+                          <span className="flex items-center gap-2">
+                            {status === 'mastered' && (
+                              <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                              </svg>
+                            )}
+                            {concept.name}
+                          </span>
+                          <span className="text-xs">
+                            {Math.round(concept.mastery * 100)}% mastery
+                          </span>
+                        </button>
+                      )
+                    })}
+                  </div>
+
+                  {selectedConcept && (
+                    <div className="mt-4 rounded-2xl border border-slate-100 bg-slate-50 p-4 text-xs text-slate-600">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
+                        Why this needs attention
+                      </p>
+                      <p className="mt-2">
+                        Mastery: {Math.round(selectedConcept.mastery * 100)}% • Stability:{' '}
+                        {Math.round(selectedConcept.stability * 100)}%
+                      </p>
+                      <p className="mt-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
+                        Prerequisites
+                      </p>
+                      <p className="mt-1">
+                        {getPrereqNames(selectedConcept.id).length
+                          ? getPrereqNames(selectedConcept.id).join(', ')
+                          : 'No prerequisites'}
+                      </p>
+                      <p className="mt-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
+                        Recommended next action
+                      </p>
+                      <p className="mt-1">{conceptRecommendation}</p>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {viewedVideos.length > 0 && (
@@ -621,6 +805,48 @@ export default function Course() {
           <div className="mt-12 grid gap-8 lg:grid-cols-[1.1fr_0.9fr]">
             <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
               <div className="flex flex-col gap-6">
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-semibold text-slate-700">Quiz focus</p>
+                    {quizFocusLoading && (
+                      <span className="text-xs font-semibold text-slate-400">Updating…</span>
+                    )}
+                  </div>
+                  {quizFocus?.focus?.length ? (
+                    <>
+                      <p className="mt-2 text-xs text-slate-500">
+                        This quiz focuses on:
+                      </p>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {quizFocus.focus.map((concept) => {
+                          const status = concept.status || {}
+                          const tagStyle = status.weak
+                            ? 'border-rose-200 bg-rose-50 text-rose-700'
+                            : status.fragile
+                              ? 'border-amber-200 bg-amber-50 text-amber-700'
+                              : status.overdue
+                                ? 'border-blue-200 bg-blue-50 text-blue-700'
+                                : 'border-slate-200 bg-white text-slate-600'
+                          return (
+                            <span
+                              key={concept.id}
+                              className={`rounded-full border px-3 py-1 text-xs font-semibold ${tagStyle}`}
+                            >
+                              {concept.name}
+                              {status.weak && ' • weakest'}
+                              {status.fragile && ' • fragile'}
+                              {status.overdue && ' • overdue'}
+                            </span>
+                          )
+                        })}
+                      </div>
+                    </>
+                  ) : (
+                    <p className="mt-2 text-xs text-slate-500">
+                      Quiz focus will appear once learner data is available.
+                    </p>
+                  )}
+                </div>
                 <div className="space-y-4">
                   <p className="text-sm font-semibold text-slate-500">Select quiz sources</p>
                   
