@@ -85,6 +85,19 @@ body {
   animation: float 3s ease-in-out infinite;
 }
 
+.mascot-lookingup {
+  animation: lookingup 2.5s ease-in-out infinite;
+}
+
+@keyframes lookingup {
+  0%, 100% {
+    transform: translateY(-5px) translateX(-2px);
+  }
+  50% {
+    transform: translateY(0px) translateX(0px);
+  }
+}
+
 @keyframes float {
   0%, 100% {
     transform: translateY(0px);
