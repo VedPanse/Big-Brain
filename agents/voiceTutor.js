@@ -192,18 +192,6 @@ export default defineAgent({
       }
     }
 
-    const sendTranscript = (speaker, text) => {
-      if (!text) return
-      ctx.room.localParticipant.publishData(
-        new TextEncoder().encode(
-          JSON.stringify({
-            topic: 'bb.transcript',
-            payload: { speaker, text },
-          }),
-        ),
-      )
-    }
-
     const updateInstructions = async () => {
       const now = Date.now()
       if (now - state.lastInstructionsAt < 1000) return
@@ -236,20 +224,6 @@ export default defineAgent({
         console.warn('[Agent] updateInstructions failed:', error?.message || error)
       }
     }
-
-    session.on('user_input_transcribed', (ev) => {
-      if (!ev?.transcript || !ev.isFinal) return
-      sendTranscript('user', ev.transcript)
-    })
-
-    session.on('conversation_item_added', (ev) => {
-      const item = ev?.item
-      if (!item || item.role !== 'assistant') return
-      const content = Array.isArray(item.content)
-        ? item.content.map((part) => part.text || '').join(' ')
-        : item.content
-      sendTranscript('agent', content)
-    })
 
     ctx.room.on('dataReceived', async (payload, participant) => {
       try {
