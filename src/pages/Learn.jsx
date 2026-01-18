@@ -64,6 +64,16 @@ export default function Learn() {
     }
   }
 
+  const titleize = (value) => {
+    if (!value) return ''
+    return value
+      .split(' ')
+      .map((word) => (word ? `${word[0].toUpperCase()}${word.slice(1)}` : ''))
+      .join(' ')
+  }
+
+  const normalizeTitle = (value) => titleize(value.replace(/-/g, ' '))
+
   const getCourseLink = (course) => {
     if (course.customTopic) {
       return `/course/${course.slug}?customTopic=${encodeURIComponent(course.customTopic)}`
@@ -94,9 +104,11 @@ export default function Learn() {
                 className="relative z-20 w-full rounded-2xl border border-slate-200 bg-white px-5 py-4 text-base text-slate-700 outline-none transition focus:border-slate-300"
               />
               <img
-                src="/logo.png"
+                src={query.trim() ? '/logo-smile.png' : '/logo.png'}
                 alt="Big Brain mascot"
-                className="pointer-events-none absolute -right-5 top-0 z-10 w-32 -translate-y-1/2 rotate-[8deg] object-contain md:w-40"
+                className={`pointer-events-none absolute -right-5 top-0 z-10 w-32 -translate-y-1/2 object-contain transition-transform duration-500 ease-out md:w-40 ${
+                  query.trim() ? 'rotate-[12deg] -translate-x-1 -translate-y-[60%]' : 'rotate-[8deg]'
+                }`}
               />
             </div>
           </div>
@@ -130,7 +142,9 @@ export default function Learn() {
                       <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
                         Active
                       </p>
-                      <h3 className="mt-3 text-lg font-semibold text-ink">{course.title}</h3>
+                      <h3 className="mt-3 text-lg font-semibold text-ink">
+                        {normalizeTitle(course.title)}
+                      </h3>
                     </div>
                     <button
                       onClick={(event) => handleRemoveCourse(event, course)}
