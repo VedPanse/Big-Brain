@@ -50,6 +50,14 @@ function App() {
             }
           />
           <Route
+            path="/graph"
+            element={
+              <PageTransition>
+                <Learn />
+              </PageTransition>
+            }
+          />
+          <Route
             path="/course/:topic"
             element={
               <PageTransition>

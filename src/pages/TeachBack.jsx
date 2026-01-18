@@ -32,7 +32,7 @@ export default function TeachBack() {
 
   useEffect(() => {
     if (!validated) return
-    const timer = setTimeout(() => navigate('/graph'), 1200)
+    const timer = setTimeout(() => navigate('/learn'), 1200)
     return () => clearTimeout(timer)
   }, [validated, navigate])
 
