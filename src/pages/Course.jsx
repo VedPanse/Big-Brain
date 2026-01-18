@@ -13,7 +13,7 @@ const tabs = ['Videos', 'Quizzes', 'Canvas']
 
 export default function Course() {
   const { topic } = useParams()
-  const { storeQuizWithSource } = useLearning()
+  const { storeQuizWithSource, getViewedVideosForTopic } = useLearning()
   const course = courseStubs[topic] || courseStubs.calculus
   const [activeTab, setActiveTab] = useState('Videos')
   const [activeVideo, setActiveVideo] = useState(course.videos[0])
@@ -24,6 +24,7 @@ export default function Course() {
   const [mode, setMode] = useState('topic')
   const [topicInput, setTopicInput] = useState(course.title)
   const [file, setFile] = useState(null)
+  const [selectedVideoForQuiz, setSelectedVideoForQuiz] = useState(null)
   const [quiz, setQuiz] = useState(null)
   const [responses, setResponses] = useState({})
   const [result, setResult] = useState(null)
@@ -39,6 +40,13 @@ export default function Course() {
     if (!question || !choiceId) return 'Unanswered'
     return question.choices?.find((choice) => choice.id === choiceId)?.text || 'Unanswered'
   }
+
+  const canvasStorageKey = `canvas-${topic}`
+
+  const seenVideos = useMemo(() => {
+    const viewedIds = getViewedVideosForTopic(topic)
+    return course.videos.filter(v => viewedIds.includes(v.id))
+  }, [topic, getViewedVideosForTopic, course.videos])
 
   const handleNextQuiz = () => {
     if (!quiz?.questions?.length) return
@@ -61,7 +69,7 @@ export default function Course() {
 
       if (mode === 'topic') {
         formData.append('topic', topicInput || course.title)
-      } else if (file) {
+      } else if (mode === 'document' && file) {
         sourceType = 'document'
         sourceId = file.name
         sourceMetadata = {
@@ -73,6 +81,19 @@ export default function Course() {
           const name = file.name.replace(/\.[^.]+$/, '')
           setTopicInput(name || 'Document')
         }
+      } else if (mode === 'video' && selectedVideoForQuiz) {
+        sourceType = 'video'
+        sourceId = selectedVideoForQuiz.id
+        sourceMetadata = {
+          videoTitle: selectedVideoForQuiz.title,
+          videoId: selectedVideoForQuiz.id,
+          channel: selectedVideoForQuiz.channel,
+        }
+        // For now, pass video title and description as context
+        // TODO: Fetch actual transcript from YouTube API
+        const videoContext = `Video: ${selectedVideoForQuiz.title}\nChannel: ${selectedVideoForQuiz.channel}\nDescription: ${selectedVideoForQuiz.why || ''}`
+        formData.append('topic', `${topic} - based on video: ${selectedVideoForQuiz.title}`)
+        formData.append('video_context', videoContext)
       }
 
       const response = await fetch('/api/quizzes/generate', { method: 'POST', body: formData })
@@ -162,8 +183,6 @@ export default function Course() {
       setLoading(false)
     }
   }
-
-  const canvasStorageKey = useMemo(() => `canvas-${topic}-embedded`, [topic])
 
   useEffect(() => {
     setActiveVideo(course.videos[0])
@@ -279,7 +298,7 @@ export default function Course() {
                 <div className="space-y-2">
                   <p className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-400">Quiz source</p>
                   <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 p-1 text-xs font-semibold text-slate-500">
-                    {['topic', 'document'].map((value) => (
+                    {['topic', 'document', 'video'].map((value) => (
                       <button
                         key={value}
                         onClick={() => setMode(value)}
@@ -289,6 +308,7 @@ export default function Course() {
                       >
                         {value === 'topic' && '📚 Topic'}
                         {value === 'document' && '📄 Document'}
+                        {value === 'video' && '🎥 Video'}
                       </button>
                     ))}
                   </div>
@@ -301,7 +321,7 @@ export default function Course() {
                       className="w-48 rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600"
                       placeholder="Topic focus"
                     />
-                  ) : (
+                  ) : mode === 'document' ? (
                     <div className="flex items-center gap-3">
                       <div className="relative flex items-center rounded-full border border-slate-200 px-4 py-2">
                         <input
@@ -337,10 +357,32 @@ export default function Course() {
                         </label>
                       </div>
                     </div>
+                  ) : (
+                    <div className="flex flex-col gap-2">
+                      {seenVideos.length === 0 ? (
+                        <p className="text-xs text-slate-500">No videos marked as seen for this topic yet.</p>
+                      ) : (
+                        <select
+                          value={selectedVideoForQuiz?.id || ''}
+                          onChange={(e) => {
+                            const video = seenVideos.find(v => v.id === e.target.value)
+                            setSelectedVideoForQuiz(video || null)
+                          }}
+                          className="w-64 rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600"
+                        >
+                          <option value="">Select a video...</option>
+                          {seenVideos.map((video) => (
+                            <option key={video.id} value={video.id}>
+                              {video.title}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
                   )}
                   <PrimaryButton
                     onClick={handleGenerateQuiz}
-                    disabled={loading || (mode === 'document' && !file)}
+                    disabled={loading || (mode === 'document' && !file) || (mode === 'video' && !selectedVideoForQuiz)}
                   >
                     {loading ? 'Generating…' : 'Generate quiz'}
                   </PrimaryButton>
