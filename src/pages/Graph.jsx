@@ -4,15 +4,10 @@ import { motion } from 'framer-motion'
 import GlassCard from '../components/GlassCard'
 import NodePreview from '../components/NodePreview'
 import PrimaryButton from '../components/PrimaryButton'
+import ObsidianLearningGraph from '../components/ObsidianLearningGraph'
 import { useLearning } from '../state/LearningContext'
 
-const statusStyles = {
-  mastered: 'bg-white/80 border-white/60 shadow-[0_0_18px_rgba(47,107,255,0.25)]',
-  learning: 'bg-white/60 border-white/50 animate-pulse',
-  weak: 'bg-white/40 border-white/40 opacity-70 blur-[0.2px]',
-}
-
-export default function Graph({ embedded = false }) {
+export default function Graph({ embedded = false, forcePerformanceMode = false }) {
   const navigate = useNavigate()
   const { courseNodes, masteryMap, setCurrentNode, fingerprint } = useLearning()
   const [selected, setSelected] = useState(null)
@@ -24,21 +19,6 @@ export default function Graph({ embedded = false }) {
       return lowest
     }, null)
   }, [courseNodes, masteryMap])
-
-  const edges = useMemo(() => {
-    return courseNodes.flatMap((node) =>
-      node.prerequisites.map((pre) => {
-        const from = courseNodes.find((n) => n.id === pre)
-        return { from, to: node }
-      }),
-    )
-  }, [courseNodes])
-
-  const getStatus = (score) => {
-    if (score >= 0.7) return 'mastered'
-    if (score >= 0.45) return 'learning'
-    return 'weak'
-  }
 
   const handleOpen = (node) => {
     setCurrentNode(node.id)
@@ -65,38 +45,12 @@ export default function Graph({ embedded = false }) {
         animate={{ opacity: 1 }}
         transition={{ duration: 0.5 }}
       >
-        <svg className="absolute inset-0 h-full w-full">
-          {edges.map((edge) => (
-            <line
-              key={`${edge.from?.id}-${edge.to.id}`}
-              x1={`${edge.from?.x}%`}
-              y1={`${edge.from?.y}%`}
-              x2={`${edge.to.x}%`}
-              y2={`${edge.to.y}%`}
-              stroke="rgba(148, 163, 184, 0.4)"
-              strokeWidth="1.5"
-            />
-          ))}
-        </svg>
-        {courseNodes.map((node) => {
-          const score = masteryMap[node.title] ?? 0
-          const status = getStatus(score)
-          const isRecommended = recommended?.node.id === node.id
-          return (
-            <button
-              key={node.id}
-              onClick={() => setSelected(node)}
-              className={`absolute -translate-x-1/2 -translate-y-1/2 rounded-2xl border px-5 py-4 text-left transition hover:-translate-y-[55%] ${statusStyles[status]} ${
-                isRecommended ? 'ring-2 ring-[color:var(--accent)]/30' : ''
-              }`}
-              style={{ left: `${node.x}%`, top: `${node.y}%` }}
-            >
-              <p className="text-xs uppercase tracking-[0.2em] text-slate-400">{status}</p>
-              <p className="text-lg font-semibold text-slate-800">{node.title}</p>
-              <p className="text-xs text-slate-500">{Math.round(score * 100)}% mastery</p>
-            </button>
-          )
-        })}
+        <ObsidianLearningGraph
+          nodes={courseNodes}
+          masteryMap={masteryMap}
+          forcePerformanceMode={forcePerformanceMode}
+          onSelect={(node) => setSelected(node)}
+        />
       </motion.div>
 
       <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">

@@ -1,9 +1,11 @@
-import { useEffect, useMemo, useState } from 'react'
+import { Suspense, lazy, useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Link, useNavigate } from 'react-router-dom'
 import NavBar from '../components/NavBar'
 import { topics } from '../data/topics'
-import Graph from './Graph'
+import ErrorBoundary from '../components/ErrorBoundary'
+
+const Graph = lazy(() => import('./Graph'))
 
 const COURSE_STORAGE_KEY = 'bb-active-courses'
 
@@ -17,6 +19,8 @@ const normalizeCourseKey = (slug, customTopic) => {
 
 export default function Learn() {
   const navigate = useNavigate()
+  const [graphKey, setGraphKey] = useState(0)
+  const [forcePerfMode, setForcePerfMode] = useState(false)
   const [query, setQuery] = useState('')
   const [activeCourses, setActiveCourses] = useState([])
   const [recommendations, setRecommendations] = useState([])
@@ -138,6 +142,16 @@ export default function Learn() {
   }
 
   const normalizeTitle = (value) => titleize(value.replace(/-/g, ' '))
+
+  const GraphSkeleton = () => (
+    <div className="relative h-[360px] md:h-[420px] w-full overflow-hidden rounded-3xl border border-slate-200 bg-slate-50">
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-slate-500">
+        <div className="h-10 w-10 animate-spin rounded-full border-2 border-slate-300 border-t-slate-500" />
+        <p className="text-sm font-semibold text-slate-700">Building your map…</p>
+        <p className="text-xs text-slate-500">Loading data…</p>
+      </div>
+    </div>
+  )
 
   return (
     <div className="min-h-screen bg-white">
@@ -270,7 +284,16 @@ export default function Learn() {
               </p>
               <h2 className="mt-2 text-2xl font-semibold text-ink">Your learning map</h2>
               <div className="mt-6">
-                <Graph embedded />
+                <ErrorBoundary
+                  onReset={(mode) => {
+                    setGraphKey((k) => k + 1)
+                    setForcePerfMode(mode === 'performance')
+                  }}
+                >
+                  <Suspense fallback={<GraphSkeleton />}>
+                    <Graph key={graphKey} embedded forcePerformanceMode={forcePerfMode} />
+                  </Suspense>
+                </ErrorBoundary>
               </div>
             </div>
           </>

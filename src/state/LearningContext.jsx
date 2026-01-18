@@ -22,10 +22,14 @@ const defaultState = {
 
 export function LearningProvider({ children }) {
   const [state, setState] = useState(() => {
+    console.time('learning-localStorage-load')
     try {
       const stored = localStorage.getItem(STORAGE_KEY)
-      return stored ? { ...defaultState, ...JSON.parse(stored) } : defaultState
+      const next = stored ? { ...defaultState, ...JSON.parse(stored) } : defaultState
+      console.timeEnd('learning-localStorage-load')
+      return next
     } catch {
+      console.timeEnd('learning-localStorage-load')
       return defaultState
     }
   })
