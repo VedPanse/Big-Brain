@@ -13,6 +13,8 @@
     "agent-dev": "node agents/voiceTutor.js dev"
   },
   "dependencies": {
+    "@arizeai/openinference-instrumentation-openai": "^4.0.5",
+    "@arizeai/phoenix-otel": "^0.3.4",
     "@livekit/agents": "^1.0.36",
     "@livekit/agents-plugin-openai": "^1.0.36",
     "@livekit/components-react": "^3.0.0",
@@ -25,12 +27,13 @@
     "express": "^4.21.2",
     "framer-motion": "^11.18.2",
     "konva": "^10.2.0",
+    "@opentelemetry/api": "^1.9.0",
     "livekit-client": "^2.0.10",
     "livekit-server-sdk": "^2.15.0",
     "lucide-react": "^0.562.0",
     "mammoth": "^1.7.1",
     "multer": "^1.4.5-lts.1",
-    "openai": "^4.87.3",
+    "openai": "^6.7.0",
     "pdf-parse": "^1.1.1",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
