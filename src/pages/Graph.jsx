@@ -30,6 +30,8 @@ export default function Graph({ embedded = false, forcePerformanceMode = false }
     : 'relative flex min-h-screen flex-col gap-6 px-6 py-10'
 
   const graphHeightClass = embedded ? 'h-[360px] md:h-[420px]' : 'h-[62vh]'
+  const nodeSizeScale = embedded ? 0.85 : 1
+  const fontScale = embedded ? 0.9 : 1
 
   return (
     <div className={containerClass}>
@@ -49,9 +51,12 @@ export default function Graph({ embedded = false, forcePerformanceMode = false }
           nodes={courseNodes}
           masteryMap={masteryMap}
           forcePerformanceMode={forcePerformanceMode}
+          nodeSizeScale={nodeSizeScale}
+          fontScale={fontScale}
           onSelect={(node) => setSelected(node)}
         />
       </motion.div>
+      <br />
 
       <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
         <GlassCard className="space-y-3">

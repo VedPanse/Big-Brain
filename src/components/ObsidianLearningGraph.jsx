@@ -92,7 +92,14 @@ function buildGraph(nodes, masteryMap) {
 // Root cause note: crashes were caused by drawing with undefined node positions while the force sim
 // was still initializing; guarded canvas drawing, deferred init until container has size,
 // and memoized data to avoid re-instantiation.
-export default function ObsidianLearningGraph({ nodes, masteryMap, onSelect, forcePerformanceMode = false }) {
+export default function ObsidianLearningGraph({
+  nodes,
+  masteryMap,
+  onSelect,
+  forcePerformanceMode = false,
+  nodeSizeScale = 1,
+  fontScale = 1,
+}) {
   const fgRef = useRef(null)
   const containerRef = useRef(null)
   const [search, setSearch] = useState('')
@@ -244,8 +251,9 @@ export default function ObsidianLearningGraph({ nodes, masteryMap, onSelect, for
     const dimBySearch = search.trim() && !matchesSearch(node) && !isFocused
     const dimByFocus = focusNeighborhood && !isFocused
 
-    const baseSize = 5 + (node.mastery ?? 0) * 5
-    const size = baseSize + (isPinned ? 2.5 : 0) + (isHovered ? 1.5 : 0)
+    const baseSize = (4 + (node.mastery ?? 0) * 4) * nodeSizeScale
+    const size =
+      baseSize + (isPinned ? 2.5 : 0) * nodeSizeScale + (isHovered ? 1.5 : 0) * nodeSizeScale
 
     const mastery = node.mastery
     const fillColor =
@@ -275,7 +283,7 @@ export default function ObsidianLearningGraph({ nodes, masteryMap, onSelect, for
     ctx.stroke()
 
     // Labels always visible
-    const fontSize = Math.max(10, 12 / Math.max(1, scale))
+    const fontSize = Math.max(10 * fontScale, (12 * fontScale) / Math.max(1, scale))
     ctx.font = `${fontSize}px "Inter", system-ui, sans-serif`
     ctx.fillStyle = theme.text
     ctx.fillText(node.title, node.x + size + 6, node.y - 2)
@@ -289,7 +297,7 @@ export default function ObsidianLearningGraph({ nodes, masteryMap, onSelect, for
     if (!ctx || !Number.isFinite(node.x) || !Number.isFinite(node.y)) return
     ctx.fillStyle = color
     ctx.beginPath()
-    ctx.arc(node.x, node.y, 12, 0, 2 * Math.PI)
+    ctx.arc(node.x, node.y, 10 * nodeSizeScale, 0, 2 * Math.PI)
     ctx.fill()
   }
 
@@ -396,7 +404,7 @@ export default function ObsidianLearningGraph({ nodes, masteryMap, onSelect, for
           nodeLabel={(node) =>
             `${node.title} · ${node.mastery === null || node.mastery === undefined ? '—' : `${Math.round(node.mastery * 100)}%`}`
           }
-          nodeRelSize={6}
+          nodeRelSize={5 * nodeSizeScale}
           width={size.width}
           height={size.height}
           enableZoomInteraction
@@ -419,4 +427,3 @@ export default function ObsidianLearningGraph({ nodes, masteryMap, onSelect, for
     </div>
   )
 }
-
