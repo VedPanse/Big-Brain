@@ -6,12 +6,13 @@ import PrimaryButton from '../components/PrimaryButton'
 import SecondaryButton from '../components/SecondaryButton'
 import CanvasBoard from '../components/CanvasBoard'
 import CanvasToolbar from '../components/CanvasToolbar'
+import VoiceRoom from '../components/VoiceRoom'
 import { courseStubs } from '../data/courseStubs'
 import { topics } from '../data/topics'
 import { useLearning } from '../state/LearningContext'
 import { searchYoutubeVideos, recommendVideos, getVideoTranscript } from '../services/youtubeService'
 
-const tabs = ['Videos', 'Quizzes', 'Canvas']
+const tabs = ['Videos', 'Quizzes', 'Canvas', 'Voice']
 const COURSE_STORAGE_KEY = 'bb-active-courses'
 
 const normalizeCourseKey = (slug, customTopic) => {
@@ -1021,6 +1022,20 @@ export default function Course() {
                   Start by drawing the concept, then label what you cannot explain in words.
                 </p>
               </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'Voice' && (
+          <div className="mt-12">
+            <div className="space-y-4">
+              <div>
+                <h2 className="text-2xl font-semibold text-ink">Voice Learning Assistant</h2>
+                <p className="mt-2 text-slate-600">
+                  Connect to a voice room and interact with an AI learning assistant. Speak naturally about the topic to get real-time feedback and guidance.
+                </p>
+              </div>
+              <VoiceRoom topicSlug={topic} />
             </div>
           </div>
         )}

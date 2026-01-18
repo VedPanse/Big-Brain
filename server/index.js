@@ -11,6 +11,9 @@ import { extractTextFromDocx, extractTextFromPdf } from './documentExtractors.js
 import { generateRecommendations } from './recommendations.js'
 import OpenAI from 'openai'
 
+import { AccessToken } from 'livekit-server-sdk'
+import { RoomConfiguration, RoomAgentDispatch } from '@livekit/protocol'
+
 const envPath = path.resolve(process.cwd(), '.env')
 dotenv.config({ path: envPath })
 
@@ -248,6 +251,78 @@ app.post('/api/autocomplete', async (req, res) => {
     res.json({ suggestions })
   } catch (error) {
     res.status(500).json({ error: error.message || 'Autocomplete failed.' })
+  }
+})
+
+app.post('/api/livekit/token', async (req, res) => {
+  const { roomName, identity } = req.body || {}
+
+  // Validate required fields
+  if (!roomName || !roomName.trim()) {
+    return res.status(400).json({ error: 'roomName is required' })
+  }
+  if (!identity || !identity.trim()) {
+    return res.status(400).json({ error: 'identity is required' })
+  }
+
+  // Check for required environment variables
+  const liveKitUrl = process.env.LIVEKIT_URL
+  const apiKey = process.env.LIVEKIT_API_KEY
+  const apiSecret = process.env.LIVEKIT_API_SECRET
+
+  if (!liveKitUrl || !apiKey || !apiSecret) {
+    console.error('Missing LiveKit credentials in .env')
+    return res.status(500).json({
+      error: 'LiveKit is not properly configured. Please set LIVEKIT_URL, LIVEKIT_API_KEY, and LIVEKIT_API_SECRET in .env',
+    })
+  }
+
+  try {
+    const token = new AccessToken(apiKey, apiSecret)
+    token.identity = identity.trim()
+    
+    // Add video grants for room access
+    token.addGrant({
+      roomJoin: true,
+      room: roomName.trim(),
+      canPublish: true,
+      canSubscribe: true,
+    })
+
+    // Derive topicSlug from roomName (format: topic-{slug}-user-demo)
+    let topicSlug = null
+    const match = roomName.match(/^topic-(.*?)-user-demo$/)
+    if (match && match[1]) {
+      topicSlug = match[1]
+    }
+
+    // Dispatch local agent named "voice-tutor" on participant connection
+    // Include topicSlug in metadata for agent instructions
+    try {
+      token.roomConfig = new RoomConfiguration({
+        agents: [
+          new RoomAgentDispatch({
+            agentName: 'voice-tutor',
+            metadata: JSON.stringify({ topicSlug }),
+          }),
+        ],
+      })
+    } catch (e) {
+      console.warn('Agent dispatch configuration failed:', e?.message || e)
+    }
+
+    const jwt = await token.toJwt()
+    
+    console.log('Token generated successfully:', { roomName: roomName.trim(), identity: identity.trim(), tokenLength: jwt?.length })
+
+    res.json({
+      token: jwt,
+      url: liveKitUrl,
+      roomName: roomName.trim(),
+    })
+  } catch (error) {
+    console.error('Token generation error:', error)
+    res.status(500).json({ error: 'Failed to generate LiveKit token' })
   }
 })
 
