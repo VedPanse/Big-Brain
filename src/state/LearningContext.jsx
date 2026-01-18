@@ -73,6 +73,19 @@ export function LearningProvider({ children }) {
       })
     }
 
+    const unmarkVideoViewed = (topic, videoId) => {
+      setState((prev) => {
+        const topicViews = prev.viewedVideosByTopic[topic] || []
+        return {
+          ...prev,
+          viewedVideosByTopic: {
+            ...prev.viewedVideosByTopic,
+            [topic]: topicViews.filter((id) => id !== videoId),
+          },
+        }
+      })
+    }
+
     const getViewedVideosForTopic = (topic) => {
       return state.viewedVideosByTopic[topic] || []
     }
@@ -85,6 +98,7 @@ export function LearningProvider({ children }) {
       updateMastery,
       resetLearning,
       markVideoViewed,
+      unmarkVideoViewed,
       getViewedVideosForTopic,
     }
   }, [state])
