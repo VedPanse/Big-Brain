@@ -26,9 +26,7 @@ export default function NavBar() {
             </Link>
           ))}
         </div>
-        <Link to="/learn">
-          <PrimaryButton>Start learning</PrimaryButton>
-        </Link>
+        <div />
       </div>
     </div>
   )

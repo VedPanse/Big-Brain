@@ -29,19 +29,28 @@ export default function Landing() {
         transition={{ type: 'spring', stiffness: 120, damping: 18 }}
         className="mx-auto flex w-full max-w-6xl flex-col gap-10 px-6 py-20"
       >
-        <div className="max-w-3xl space-y-6">
-          <h1 className="text-5xl font-semibold tracking-[-0.02em] text-ink md:text-7xl">Big Brain.</h1>
-          <h2 className="text-3xl font-medium text-ash md:text-4xl">
-            A learning OS that adapts to how you think.
-          </h2>
-          <p className="text-lg text-slate-600 md:text-xl">
-            Videos → practice → canvas → mastery. A single flow that keeps you in motion and makes
-            understanding visible.
-          </p>
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <Link to="/learn">
-              <PrimaryButton className="px-8 py-3.5 text-base">Start learning</PrimaryButton>
-            </Link>
+        <div className="grid gap-10 lg:grid-cols-[1.2fr_0.8fr] lg:items-center">
+          <div className="max-w-3xl space-y-6">
+            <h1 className="text-5xl font-semibold tracking-[-0.02em] text-ink md:text-7xl">Big Brain.</h1>
+            <h2 className="text-3xl font-medium text-ash md:text-4xl">
+              A learning OS that adapts to how you think.
+            </h2>
+            <p className="text-lg text-slate-600 md:text-xl">
+              Videos → practice → canvas → mastery. A single flow that keeps you in motion and makes
+              understanding visible.
+            </p>
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <Link to="/learn">
+                <PrimaryButton className="px-8 py-3.5 text-base">Start learning</PrimaryButton>
+              </Link>
+            </div>
+          </div>
+          <div className="flex items-center justify-center">
+            <img
+              src="/public/logo.webp"
+              alt="Big Brain logo"
+              className="w-full max-w-xs object-contain"
+            />
           </div>
         </div>
         <div className="grid gap-6 md:grid-cols-3">
@@ -68,8 +77,18 @@ export default function Landing() {
               </p>
             </div>
             <div className="flex flex-col gap-4">
-              <div className="h-32 rounded-3xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white" />
-              <div className="h-32 rounded-3xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white" />
+              <div className="rounded-3xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-6">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Canvas</p>
+                <p className="mt-3 text-sm text-slate-600">
+                  Sketch a graph, label edges, and mark confusion points. The canvas stays live while you learn.
+                </p>
+              </div>
+              <div className="rounded-3xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-6">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Teach-back</p>
+                <p className="mt-3 text-sm text-slate-600">
+                  Explain in your own words and get precise prompts where reasoning breaks down.
+                </p>
+              </div>
             </div>
           </div>
         </div>
