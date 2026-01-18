@@ -816,6 +816,7 @@ export default function Course() {
                                   {attempt.sourceType === 'topic' && '📚'}
                                   {attempt.sourceType === 'document' && '📄'}
                                   {attempt.sourceType === 'video' && '🎥'}
+                                  {attempt.sourceType === 'multiple' && '📦'}
                                 </span>
                               )}
                               <span className="text-sm font-semibold text-slate-600">{attempt.topic}</span>
@@ -823,6 +824,35 @@ export default function Course() {
                             <p className="mt-1 text-xs text-slate-400">
                               {attempt.result?.correct ?? 0}/{attempt.result?.total ?? 0} correct
                             </p>
+                            
+                            {/* Display resources used */}
+                            {attempt.sourceMetadata && (
+                              <div className="mt-2 space-y-1">
+                                {attempt.sourceType === 'multiple' && attempt.sourceMetadata.sources ? (
+                                  <div className="space-y-1">
+                                    <p className="text-xs font-semibold text-slate-500">Resources used:</p>
+                                    <div className="flex flex-wrap gap-1">
+                                      {attempt.sourceMetadata.sources.map((source, idx) => (
+                                        <span key={idx} className="inline-flex items-center gap-1 rounded-md bg-slate-200 px-2 py-0.5 text-xs text-slate-700">
+                                          {source.type === 'topic' && '📚'}
+                                          {source.type === 'document' && '📄'}
+                                          {source.type === 'video' && '🎥'}
+                                          <span className="max-w-[150px] truncate">
+                                            {source.metadata?.topic || source.metadata?.documentName || source.metadata?.videoTitle}
+                                          </span>
+                                        </span>
+                                      ))}
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <p className="text-xs text-slate-500">
+                                    {attempt.sourceType === 'document' && `📄 ${attempt.sourceMetadata.documentName}`}
+                                    {attempt.sourceType === 'video' && `🎥 ${attempt.sourceMetadata.videoTitle}`}
+                                    {attempt.sourceType === 'topic' && `📚 ${attempt.sourceMetadata.topic}`}
+                                  </p>
+                                )}
+                              </div>
+                            )}
                           </div>
                           <span className="text-sm font-semibold text-slate-600">{attempt.result?.percentage ?? 0}%</span>
                         </div>
