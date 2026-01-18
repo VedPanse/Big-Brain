@@ -183,3 +183,76 @@ function getMockVideosById(videoIds) {
   const allVideos = Object.values(MOCK_VIDEOS_DB).flat()
   return videoIds.map((id) => allVideos.find((v) => v.id === id)).filter(Boolean)
 }
+
+/**
+ * Fetch transcript/captions for a YouTube video
+ * Uses a third-party API to get video transcripts
+ */
+export async function getVideoTranscript(videoId) {
+  try {
+    // Using a CORS-friendly transcript API endpoint
+    const response = await fetch(`https://www.youtube.com/api/timedtext?v=${videoId}&lang=en`)
+    
+    if (!response.ok) {
+      // Try alternative transcript fetch method
+      return await fetchTranscriptAlternative(videoId)
+    }
+
+    const text = await response.text()
+    
+    // Parse XML transcript if available
+    if (text && text.includes('<text')) {
+      return parseTranscriptXML(text)
+    }
+    
+    return null
+  } catch (error) {
+    console.error('Transcript fetch failed:', error)
+    return null
+  }
+}
+
+/**
+ * Alternative method: fetch transcript via backend proxy
+ */
+async function fetchTranscriptAlternative(videoId) {
+  try {
+    const response = await fetch(`/api/youtube/transcript/${videoId}`)
+    if (!response.ok) return null
+    const data = await response.json()
+    return data.transcript || null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Parse YouTube's XML transcript format
+ */
+function parseTranscriptXML(xmlText) {
+  try {
+    const parser = new DOMParser()
+    const xmlDoc = parser.parseFromString(xmlText, 'text/xml')
+    const textNodes = xmlDoc.querySelectorAll('text')
+    
+    const transcript = Array.from(textNodes)
+      .map(node => {
+        const text = node.textContent
+        // Decode HTML entities
+        const decoded = text
+          .replace(/&amp;/g, '&')
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>')
+          .replace(/&quot;/g, '"')
+          .replace(/&#39;/g, "'")
+        return decoded
+      })
+      .join(' ')
+      .trim()
+    
+    return transcript || null
+  } catch (error) {
+    console.error('XML parsing failed:', error)
+    return null
+  }
+}

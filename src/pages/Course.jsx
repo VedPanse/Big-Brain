@@ -8,7 +8,7 @@ import CanvasBoard from '../components/CanvasBoard'
 import CanvasToolbar from '../components/CanvasToolbar'
 import { courseStubs } from '../data/courseStubs'
 import { useLearning } from '../state/LearningContext'
-import { searchYoutubeVideos, recommendVideos } from '../services/youtubeService'
+import { searchYoutubeVideos, recommendVideos, getVideoTranscript } from '../services/youtubeService'
 
 const tabs = ['Videos', 'Quizzes', 'Canvas']
 
@@ -44,6 +44,7 @@ export default function Course() {
   const [report, setReport] = useState(null)
   const [error, setError] = useState('')
   const [embedError, setEmbedError] = useState(false)
+  const [loadingMessage, setLoadingMessage] = useState('')
 
   const activeQuestion = quiz?.questions?.[quizIndex]
   const selectedChoice = activeQuestion ? responses[activeQuestion.id]?.value : null
@@ -123,6 +124,7 @@ export default function Course() {
 
   const handleGenerateQuiz = async () => {
     setLoading(true)
+    setLoadingMessage('Preparing quiz...')
     setError('')
     setResult(null)
     try {
@@ -155,25 +157,50 @@ export default function Course() {
 
       // Add videos if selected
       if (selectedVideoIds.length > 0) {
-        const selectedVideos = course.videos.filter(v => selectedVideoIds.includes(v.id))
-        selectedVideos.forEach((video) => {
-          const videoContext = `Video: ${video.title}\nChannel: ${video.channel}\nDescription: ${video.why || ''}`
-          combinedContext.push(videoContext)
+        setLoadingMessage(`Fetching transcripts for ${selectedVideoIds.length} video(s)...`)
+        const selectedVideos = videos.filter(v => selectedVideoIds.includes(v.id))
+        
+        // Fetch transcripts for all selected videos
+        const videoContexts = await Promise.all(
+          selectedVideos.map(async (video) => {
+            let context = `Video: ${video.title}\nChannel: ${video.channel}\nDescription: ${video.description || ''}\n`
+            
+            // Try to fetch transcript
+            const transcript = await getVideoTranscript(video.id)
+            if (transcript) {
+              // Limit transcript length to avoid token limits (first 3000 chars)
+              const truncatedTranscript = transcript.length > 3000 
+                ? transcript.substring(0, 3000) + '...' 
+                : transcript
+              context += `\nTranscript: ${truncatedTranscript}`
+            } else {
+              context += '\n(Transcript not available)'
+            }
+            
+            return { video, context }
+          })
+        )
+        
+        videoContexts.forEach(({ video, context }) => {
+          combinedContext.push(context)
           sources.push({
             type: 'video',
             id: video.id,
             metadata: { videoTitle: video.title, videoId: video.id, channel: video.channel }
           })
         })
-        formData.append('video_context', combinedContext.filter(c => c.startsWith('Video:')).join('\n\n'))
+        
+        formData.append('video_context', videoContexts.map(v => v.context).join('\n\n---\n\n'))
       }
 
       if (sources.length === 0) {
         setError('Please select at least one source for the quiz')
         setLoading(false)
+        setLoadingMessage('')
         return
       }
 
+      setLoadingMessage('Generating quiz questions...')
       const response = await fetch('/api/quizzes/generate', { method: 'POST', body: formData })
       if (!response.ok) {
         const message = await response.json().catch(() => ({}))
@@ -203,6 +230,7 @@ export default function Course() {
       setError(err.message)
     } finally {
       setLoading(false)
+      setLoadingMessage('')
     }
   }
 
@@ -614,7 +642,7 @@ export default function Course() {
                   onClick={handleGenerateQuiz}
                   disabled={loading || (!includeTopic && selectedFiles.length === 0 && selectedVideoIds.length === 0)}
                 >
-                  {loading ? 'Generating…' : 'Generate quiz'}
+                  {loading ? (loadingMessage || 'Generating…') : 'Generate quiz'}
                 </PrimaryButton>
               </div>
 
