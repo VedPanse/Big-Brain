@@ -3,7 +3,6 @@ import PrimaryButton from './PrimaryButton'
 
 const links = [
   { label: 'Learn', to: '/learn', match: '/learn' },
-  { label: 'Course', to: '/course/calculus', match: '/course' },
   { label: 'Canvas', to: '/canvas/calculus', match: '/canvas' },
 ]
 

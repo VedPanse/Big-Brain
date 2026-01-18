@@ -11,6 +11,7 @@ import { useLearning } from '../state/LearningContext'
 import { searchYoutubeVideos, recommendVideos, getVideoTranscript } from '../services/youtubeService'
 
 const tabs = ['Videos', 'Quizzes', 'Canvas']
+const COURSE_STORAGE_KEY = 'bb-active-courses'
 
 export default function Course() {
   const { topic } = useParams()
@@ -71,6 +72,26 @@ export default function Course() {
 
     fetchVideos()
   }, [topic, customTopicName])
+
+  useEffect(() => {
+    const entry = {
+      slug: topic,
+      title: displayTopic || course.title,
+      customTopic: customTopicName || '',
+      lastOpenedAt: new Date().toISOString(),
+    }
+    try {
+      const raw = localStorage.getItem(COURSE_STORAGE_KEY)
+      const existing = raw ? JSON.parse(raw) : []
+      const filtered = Array.isArray(existing)
+        ? existing.filter((item) => item.slug !== entry.slug || item.customTopic !== entry.customTopic)
+        : []
+      const next = [entry, ...filtered].slice(0, 8)
+      localStorage.setItem(COURSE_STORAGE_KEY, JSON.stringify(next))
+    } catch {
+      // ignore storage errors
+    }
+  }, [topic, customTopicName, displayTopic, course.title])
 
   const activeVideo = useMemo(() => {
     return videos.find((video) => video.id === activeVideoId) || null
