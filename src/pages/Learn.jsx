@@ -96,7 +96,7 @@ export default function Learn() {
               <img
                 src="/logo.png"
                 alt="Big Brain mascot"
-                className="pointer-events-none absolute bottom-14 right-6 z-10 w-32 rotate-[8deg] object-contain md:w-40"
+                className="pointer-events-none absolute -right-5 top-0 z-10 w-32 -translate-y-1/2 rotate-[8deg] object-contain md:w-40"
               />
             </div>
           </div>
