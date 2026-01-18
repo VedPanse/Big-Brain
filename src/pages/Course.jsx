@@ -30,13 +30,8 @@ export default function Course() {
   const [showAnswer, setShowAnswer] = useState(false)
   const [tool, setTool] = useState('pen')
   const [resetSignal, setResetSignal] = useState(0)
-  const [mode, setMode] = useState('topic')
-  const [topicInput, setTopicInput] = useState(course.title)
-  const [file, setFile] = useState(null)
-  const [selectedVideoForQuiz, setSelectedVideoForQuiz] = useState(null)
   const [selectedFiles, setSelectedFiles] = useState([])
   const [selectedVideoIds, setSelectedVideoIds] = useState([])
-  const [includeTopic, setIncludeTopic] = useState(true)
   const [quiz, setQuiz] = useState(null)
   const [responses, setResponses] = useState({})
   const [result, setResult] = useState(null)
@@ -193,11 +188,9 @@ export default function Course() {
         formData.append('video_context', videoContexts.map(v => v.context).join('\n\n---\n\n'))
       }
 
+      // If no sources selected, mark it as autonomous generation
       if (sources.length === 0) {
-        setError('Please select at least one source for the quiz')
-        setLoading(false)
-        setLoadingMessage('')
-        return
+        formData.append('mode', 'autonomous')
       }
 
       setLoadingMessage('Generating quiz questions...')
@@ -210,12 +203,12 @@ export default function Course() {
       const quizData = await response.json()
       
       // Store quiz with multi-source metadata
-      const sourceType = sources.length === 1 ? sources[0].type : 'multiple'
-      const sourceId = sources.length === 1 ? sources[0].id : `multi-${Date.now()}`
+      const sourceType = sources.length === 0 ? 'autonomous' : (sources.length === 1 ? sources[0].type : 'multiple')
+      const sourceId = sources.length === 0 ? `autonomous-${Date.now()}` : (sources.length === 1 ? sources[0].id : `multi-${Date.now()}`)
       const sourceMetadata = {
-        sources,
+        sources: sources.length > 0 ? sources : [],
         sourceCount: sources.length,
-        combinedDescription: combinedContext.join(' + ')
+        combinedDescription: sources.length > 0 ? combinedContext.join(' + ') : 'Autonomously generated'
       }
       
       storeQuizWithSource(sourceType, sourceId, sourceMetadata, quizData)
@@ -302,13 +295,11 @@ export default function Course() {
     setActiveTab('Videos')
     setQuizIndex(0)
     setShowAnswer(false)
-    setTopicInput(course.title)
     setQuiz(null)
     setResponses({})
     setResult(null)
     setHistory([])
     setReport(null)
-    setFile(null)
     setError('')
   }, [course])
 
@@ -551,19 +542,6 @@ export default function Course() {
                 <div className="space-y-4">
                   <p className="text-sm font-semibold text-slate-500">Select quiz sources</p>
                   
-                  {/* AI Generated Section */}
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                    <label className="flex items-center gap-3">
-                      <input
-                        type="checkbox"
-                        checked={includeTopic}
-                        onChange={(e) => setIncludeTopic(e.target.checked)}
-                        className="h-4 w-4 rounded border-slate-300"
-                      />
-                      <span className="text-sm font-semibold text-slate-700">🤖 AI Generated Questions</span>
-                    </label>
-                  </div>
-
                   {/* Documents Section */}
                   <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                     <p className="text-sm font-semibold text-slate-700">📄 Documents</p>
@@ -632,7 +610,7 @@ export default function Course() {
 
                 <PrimaryButton
                   onClick={handleGenerateQuiz}
-                  disabled={loading || (!includeTopic && selectedFiles.length === 0 && selectedVideoIds.length === 0)}
+                  disabled={loading}
                 >
                   {loading ? (loadingMessage || 'Generating…') : 'Generate quiz'}
                 </PrimaryButton>
@@ -671,11 +649,11 @@ export default function Course() {
                         ))
                       ) : (
                         <span className="inline-flex items-center rounded-full bg-blue-100 px-3 py-1 text-sm font-semibold text-blue-700">
-                          {quiz.sourceType === 'topic' && '🤖 AI Generated'}
+                          {quiz.sourceType === 'autonomous' && '🤖 Autonomously Generated'}
                           {quiz.sourceType === 'document' && '📄 Document'}
                           {quiz.sourceType === 'video' && '🎥 Video'}
                           {' '}
-                          {quiz.sourceMetadata?.topic || quiz.sourceMetadata?.documentName || quiz.sourceMetadata?.videoTitle}
+                          {quiz.sourceType !== 'autonomous' && (quiz.sourceMetadata?.documentName || quiz.sourceMetadata?.videoTitle)}
                         </span>
                       )}
                     </div>
@@ -809,6 +787,7 @@ export default function Course() {
                                   {attempt.sourceType === 'document' && '📄'}
                                   {attempt.sourceType === 'video' && '🎥'}
                                   {attempt.sourceType === 'multiple' && '📦'}
+                                  {attempt.sourceType === 'autonomous' && '🤖'}
                                 </span>
                               )}
                               <span className="text-sm font-semibold text-slate-600">{attempt.topic}</span>
@@ -836,11 +815,12 @@ export default function Course() {
                                       ))}
                                     </div>
                                   </div>
+                                ) : attempt.sourceType === 'autonomous' ? (
+                                  <p className="text-xs text-slate-500">🤖 Autonomously generated</p>
                                 ) : (
                                   <p className="text-xs text-slate-500">
                                     {attempt.sourceType === 'document' && `📄 ${attempt.sourceMetadata.documentName}`}
                                     {attempt.sourceType === 'video' && `🎥 ${attempt.sourceMetadata.videoTitle}`}
-                                    {attempt.sourceType === 'topic' && `🤖 ${attempt.sourceMetadata.topic}`}
                                   </p>
                                 )}
                               </div>
