@@ -233,10 +233,14 @@ export default function Course() {
       setLoadingMessage('Generating quiz questions...')
       const response = await fetch('/api/quizzes/generate', { method: 'POST', body: formData })
       if (!response.ok) {
-        const message = await response
-          .json()
-          .catch(async () => ({ error: await response.text() }))
-        throw new Error(message.error || 'Unable to generate quiz.')
+        const raw = await response.text()
+        let parsed = {}
+        try {
+          parsed = raw ? JSON.parse(raw) : {}
+        } catch {
+          parsed = { error: raw }
+        }
+        throw new Error(parsed.error || 'Unable to generate quiz.')
       }
 
       const quizData = await response.json()

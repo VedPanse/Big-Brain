@@ -85,18 +85,18 @@ export default function Learn() {
             <h1 className="text-4xl font-semibold tracking-[-0.02em] text-ink md:text-5xl">
               What do you want to learn?
             </h1>
-            <div className="relative">
+            <div className="relative w-full max-w-4xl lg:w-4/5">
               <input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 onKeyPress={handleKeyPress}
                 placeholder="Search topics (e.g., derivatives, pointers, transformers) - Press Enter to search any topic"
-                className="w-full rounded-2xl border border-slate-200 px-5 py-4 text-base text-slate-700 outline-none transition focus:border-slate-300"
+                className="relative z-20 w-full rounded-2xl border border-slate-200 bg-white px-5 py-4 text-base text-slate-700 outline-none transition focus:border-slate-300"
               />
               <img
                 src="/logo.png"
                 alt="Big Brain mascot"
-                className="pointer-events-none absolute -top-6 right-4 w-16 rotate-[-8deg] object-contain md:w-20"
+                className="pointer-events-none absolute bottom-14 right-6 z-10 w-32 rotate-[8deg] object-contain md:w-40"
               />
             </div>
           </div>
