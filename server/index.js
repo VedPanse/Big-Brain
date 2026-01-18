@@ -4,11 +4,21 @@ import dotenv from 'dotenv'
 import fs from 'fs/promises'
 import path from 'path'
 import crypto from 'crypto'
+import cors from 'cors'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import { getDb } from './db.js'
 import { generateQuiz } from './quizGenerator.js'
 import { scoreAttempt } from './scoreAttempt.js'
 import { extractTextFromDocx, extractTextFromPdf } from './documentExtractors.js'
+import {
+  recordEvent as recordCognitiveEvent,
+  recomputeFingerprint,
+  getFingerprintSummary,
+  getConceptBreakdown,
+  deleteFingerprint,
+  getUserId,
+  getPersonalizationPlan,
+} from './cognitiveFingerprint.js'
 import {
   archiveEdge,
   archiveConcept,
@@ -48,6 +58,12 @@ const CANVAS_RATE_WINDOW_MS = 60 * 1000
 const CANVAS_RATE_LIMIT = 8
 const CANVAS_CACHE_TTL_MS = 120 * 1000
 
+app.use(
+  cors({
+    origin: 'http://localhost:5173',
+    credentials: true,
+  }),
+)
 app.use(express.json({ limit: '1mb' }))
 
 const normalizeJson = (content) => {
@@ -309,6 +325,79 @@ app.get('/api/graph/report', (req, res) => {
     strongestTopics,
     mostConnectedTopics,
   })
+})
+
+// Cognitive Fingerprint APIs
+app.post('/api/cognitive-fingerprint/event', express.json({ limit: '1mb' }), (req, res) => {
+  const userId = getUserId(req)
+  try {
+    const { interaction_type, interactionType } = req.body || {}
+    if (!(interaction_type || interactionType)) {
+      return res.status(400).json({ error: 'interaction_type is required' })
+    }
+    const result = recordCognitiveEvent(userId, req.body || {})
+    res.json({ id: result.id, skipped: result.skipped })
+  } catch (error) {
+    res.status(500).json({ error: error.message || 'Failed to record event.' })
+  }
+})
+
+app.get('/api/cognitive-fingerprint/summary', (req, res) => {
+  const userId = getUserId(req)
+  const limit = Number(req.query.limit) || 20
+  try {
+    const summary = getFingerprintSummary(userId, limit)
+    res.json(summary)
+  } catch (error) {
+    res.status(500).json({ error: error.message || 'Failed to load summary.' })
+  }
+})
+
+app.get('/api/cognitive-fingerprint/concepts', (req, res) => {
+  const userId = getUserId(req)
+  const limit = Number(req.query.limit) || 50
+  try {
+    const concepts = getConceptBreakdown(userId, limit)
+    res.json(concepts)
+  } catch (error) {
+    res.status(500).json({ error: error.message || 'Failed to load concepts.' })
+  }
+})
+
+app.post('/api/cognitive-fingerprint/recompute', (req, res) => {
+  const userId = getUserId(req)
+  try {
+    recomputeFingerprint(userId, req.body?.concept_tags || [])
+    res.json({ ok: true })
+  } catch (error) {
+    res.status(500).json({ error: error.message || 'Recompute failed.' })
+  }
+})
+
+app.get('/api/cognitive-fingerprint/personalization', (req, res) => {
+  const userId = getUserId(req)
+  try {
+    const summary = getFingerprintSummary(userId, 30)
+    const plan = getPersonalizationPlan(summary, {
+      concept_tags: req.query.concept_tags ? req.query.concept_tags.split(',') : [],
+      question_format: req.query.question_format,
+      difficulty: req.query.difficulty,
+      subject: req.query.subject,
+    })
+    res.json(plan)
+  } catch (error) {
+    res.status(500).json({ error: error.message || 'Failed to build personalization plan.' })
+  }
+})
+
+app.delete('/api/cognitive-fingerprint/data', (req, res) => {
+  const userId = getUserId(req)
+  try {
+    deleteFingerprint(userId)
+    res.json({ ok: true })
+  } catch (error) {
+    res.status(500).json({ error: error.message || 'Failed to delete data.' })
+  }
 })
 
 app.listen(PORT, () => {

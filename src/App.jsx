@@ -6,6 +6,7 @@ import Course from './pages/Course'
 import Canvas from './pages/Canvas'
 import Diagnostic from './pages/Diagnostic'
 import NotFound from './pages/NotFound'
+import CognitiveFingerprintPage from './pages/CognitiveFingerprint'
 
 const pageVariants = {
   initial: { opacity: 0, y: 8 },
@@ -79,6 +80,14 @@ function App() {
             element={
               <PageTransition>
                 <Diagnostic />
+              </PageTransition>
+            }
+          />
+          <Route
+            path="/cognitive-fingerprint"
+            element={
+              <PageTransition>
+                <CognitiveFingerprintPage />
               </PageTransition>
             }
           />

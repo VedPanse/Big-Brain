@@ -5,6 +5,7 @@ const links = [
   { label: 'Learn', to: '/learn', match: '/learn' },
   { label: 'Course', to: '/course/calculus', match: '/course' },
   { label: 'Canvas', to: '/canvas/calculus', match: '/canvas' },
+  { label: 'Cognition Map', to: '/cognitive-fingerprint', match: '/cognitive-fingerprint' },
 ]
 
 export default function NavBar() {

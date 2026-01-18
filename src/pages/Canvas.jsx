@@ -5,6 +5,7 @@ import { AlertTriangle, CheckCircle2, Sparkles } from 'lucide-react'
 import CanvasBoard from '../components/CanvasBoard'
 import CanvasToolbar from '../components/CanvasToolbar'
 import { courseStubs } from '../data/courseStubs'
+import InsightsChip from '../components/InsightsChip'
 
 const statusCopy = {
   idle: 'Idle',
@@ -491,6 +492,9 @@ export default function Canvas() {
               />
               <p className="text-xs font-semibold text-slate-500">Saved automatically.</p>
             </div>
+          </div>
+          <div className="mt-3">
+            <InsightsChip conceptTags={[course.title]} />
           </div>
 
           <div className="relative mt-5 overflow-hidden rounded-3xl border border-slate-200 bg-white/70 shadow-sm backdrop-blur-lg">

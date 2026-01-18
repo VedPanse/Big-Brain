@@ -13,7 +13,16 @@ It is a learning operating system that builds a model of how each student thinks
 
 Instead of passively answering questions, Big Brain **probes, corrects, and reshapes understanding**.
 
----
+
+## Quick start env
+
+Set the frontend API base (Vite):
+
+```
+VITE_API_BASE_URL=http://localhost:8000
+```
+
+--- 
 
 ## Why Big Brain?
 
