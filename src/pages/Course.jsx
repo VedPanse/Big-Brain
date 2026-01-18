@@ -7,11 +7,13 @@ import SecondaryButton from '../components/SecondaryButton'
 import CanvasBoard from '../components/CanvasBoard'
 import CanvasToolbar from '../components/CanvasToolbar'
 import { courseStubs } from '../data/courseStubs'
+import { useLearning } from '../state/LearningContext'
 
 const tabs = ['Videos', 'Quizzes', 'Canvas']
 
 export default function Course() {
   const { topic } = useParams()
+  const { storeQuizWithSource } = useLearning()
   const course = courseStubs[topic] || courseStubs.calculus
   const [activeTab, setActiveTab] = useState('Videos')
   const [activeVideo, setActiveVideo] = useState(course.videos[0])
@@ -53,9 +55,19 @@ export default function Course() {
       formData.append('num_questions', '5')
       formData.append('difficulty', 'medium')
 
+      let sourceType = 'topic'
+      let sourceId = topicInput || course.title
+      let sourceMetadata = { topic: sourceId }
+
       if (mode === 'topic') {
         formData.append('topic', topicInput || course.title)
       } else if (file) {
+        sourceType = 'document'
+        sourceId = file.name
+        sourceMetadata = {
+          documentName: file.name,
+          uploadedAt: new Date().toISOString(),
+        }
         formData.append('file', file)
         if (!topicInput) {
           const name = file.name.replace(/\.[^.]+$/, '')
@@ -70,6 +82,10 @@ export default function Course() {
       }
 
       const quizData = await response.json()
+      
+      // Store quiz with source metadata
+      storeQuizWithSource(sourceType, sourceId, sourceMetadata, quizData)
+      
       setQuiz(quizData)
       setQuizIndex(0)
       setResponses({})
@@ -244,18 +260,22 @@ export default function Course() {
           <div className="mt-12 grid gap-8 lg:grid-cols-[1.1fr_0.9fr]">
             <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
               <div className="flex flex-wrap items-center justify-between gap-4">
-                <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 p-1 text-xs font-semibold text-slate-500">
-                  {['topic', 'document'].map((value) => (
-                    <button
-                      key={value}
-                      onClick={() => setMode(value)}
-                      className={`rounded-full px-3 py-1.5 transition ${
-                        mode === value ? 'bg-white text-ink shadow-sm' : ''
-                      }`}
-                    >
-                      {value === 'topic' ? 'Topic' : 'Document'}
-                    </button>
-                  ))}
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-400">Quiz source</p>
+                  <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 p-1 text-xs font-semibold text-slate-500">
+                    {['topic', 'document'].map((value) => (
+                      <button
+                        key={value}
+                        onClick={() => setMode(value)}
+                        className={`rounded-full px-3 py-1.5 transition ${
+                          mode === value ? 'bg-white text-ink shadow-sm' : ''
+                        }`}
+                      >
+                        {value === 'topic' && '📚 Topic'}
+                        {value === 'document' && '📄 Document'}
+                      </button>
+                    ))}
+                  </div>
                 </div>
                 <div className="flex items-center gap-3">
                   {mode === 'topic' ? (
@@ -307,6 +327,19 @@ export default function Course() {
                   transition={{ type: 'spring', stiffness: 120, damping: 18 }}
                   className="mt-8"
                 >
+                  <div className="mb-6 rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-500">Quiz source</p>
+                    <div className="mt-2 flex items-center gap-2">
+                      <span className="inline-flex items-center rounded-full bg-blue-100 px-3 py-1 text-sm font-semibold text-blue-700">
+                        {quiz.sourceType === 'topic' && '📚 Topic'}
+                        {quiz.sourceType === 'document' && '📄 Document'}
+                        {quiz.sourceType === 'video' && '🎥 Video'}
+                      </span>
+                      <span className="text-sm font-semibold text-slate-700">
+                        {quiz.sourceMetadata?.topic || quiz.sourceMetadata?.documentName || quiz.sourceMetadata?.videoTitle}
+                      </span>
+                    </div>
+                  </div>
                   <div className="flex items-center justify-between">
                     <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Question</p>
                     <p className="text-xs font-semibold text-slate-400">
@@ -409,13 +442,24 @@ export default function Course() {
                     )}
                     {history.map((attempt) => (
                       <div key={attempt.id} className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
-                        <div className="flex items-center justify-between text-sm font-semibold text-slate-600">
-                          <span>{attempt.topic}</span>
-                          <span>{attempt.result?.percentage ?? 0}%</span>
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              {attempt.sourceType && (
+                                <span className="inline-flex items-center rounded-full bg-blue-100 px-2 py-1 text-xs font-semibold text-blue-700">
+                                  {attempt.sourceType === 'topic' && '📚'}
+                                  {attempt.sourceType === 'document' && '📄'}
+                                  {attempt.sourceType === 'video' && '🎥'}
+                                </span>
+                              )}
+                              <span className="text-sm font-semibold text-slate-600">{attempt.topic}</span>
+                            </div>
+                            <p className="mt-1 text-xs text-slate-400">
+                              {attempt.result?.correct ?? 0}/{attempt.result?.total ?? 0} correct
+                            </p>
+                          </div>
+                          <span className="text-sm font-semibold text-slate-600">{attempt.result?.percentage ?? 0}%</span>
                         </div>
-                        <p className="mt-1 text-xs text-slate-400">
-                          {attempt.result?.correct ?? 0}/{attempt.result?.total ?? 0} correct
-                        </p>
                         <details className="mt-3 text-sm text-slate-600">
                           <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
                             Review answers

@@ -16,6 +16,8 @@ const defaultState = {
   answers: [],
   currentNodeId: courseNodes[0]?.id || null,
   diagnosticCompleted: false,
+  viewedVideosByTopic: {}, // topic -> [videoIds]
+  quizzesBySource: {}, // sourceKey -> [quizzes with metadata]
 }
 
 export function LearningProvider({ children }) {
@@ -58,6 +60,67 @@ export function LearningProvider({ children }) {
       setState(defaultState)
     }
 
+    const markVideoViewed = (topic, videoId) => {
+      setState((prev) => {
+        const topicViews = prev.viewedVideosByTopic?.[topic] || []
+        if (topicViews.includes(videoId)) return prev
+        return {
+          ...prev,
+          viewedVideosByTopic: {
+            ...prev.viewedVideosByTopic,
+            [topic]: [...topicViews, videoId],
+          },
+        }
+      })
+    }
+
+    const unmarkVideoViewed = (topic, videoId) => {
+      setState((prev) => {
+        const topicViews = prev.viewedVideosByTopic?.[topic] || []
+        return {
+          ...prev,
+          viewedVideosByTopic: {
+            ...prev.viewedVideosByTopic,
+            [topic]: topicViews.filter((id) => id !== videoId),
+          },
+        }
+      })
+    }
+
+    const getViewedVideosForTopic = (topic) => {
+      return state.viewedVideosByTopic?.[topic] || []
+    }
+
+    const storeQuizWithSource = (sourceType, sourceId, sourceMetadata, quizData) => {
+      setState((prev) => {
+        const sourceKey = `${sourceType}-${sourceId}`
+        const quizWithSource = {
+          ...quizData,
+          sourceType,
+          sourceId,
+          sourceMetadata,
+          createdAt: Date.now(),
+        }
+        const existingQuizzes = prev.quizzesBySource?.[sourceKey] || []
+        return {
+          ...prev,
+          quizzesBySource: {
+            ...prev.quizzesBySource,
+            [sourceKey]: [quizWithSource, ...existingQuizzes],
+          },
+        }
+      })
+    }
+
+    const getQuizzesForSource = (sourceType, sourceId) => {
+      const sourceKey = `${sourceType}-${sourceId}`
+      return state.quizzesBySource?.[sourceKey] || []
+    }
+
+    const getAllQuizzes = () => {
+      return Object.values(state.quizzesBySource || {}).flat()
+    }
+
     return {
       ...state,
       courseNodes,
@@ -65,6 +128,12 @@ export function LearningProvider({ children }) {
       setCurrentNode,
       updateMastery,
       resetLearning,
+      markVideoViewed,
+      unmarkVideoViewed,
+      getViewedVideosForTopic,
+      storeQuizWithSource,
+      getQuizzesForSource,
+      getAllQuizzes,
     }
   }, [state])
 
