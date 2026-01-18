@@ -3,6 +3,7 @@ import { motion } from 'framer-motion'
 import { Link, useNavigate } from 'react-router-dom'
 import NavBar from '../components/NavBar'
 import { topics } from '../data/topics'
+import Graph from './Graph'
 
 const COURSE_STORAGE_KEY = 'bb-active-courses'
 
@@ -128,19 +129,6 @@ export default function Learn() {
     return () => clearTimeout(timer)
   }, [query])
 
-  const handleRemoveCourse = (event, target) => {
-    event.preventDefault()
-    event.stopPropagation()
-    const targetKey = target.key || normalizeCourseKey(target.slug, target.customTopic)
-    const next = activeCourses.filter((course) => course.key !== targetKey)
-    setActiveCourses(next)
-    try {
-      localStorage.setItem(COURSE_STORAGE_KEY, JSON.stringify(next))
-    } catch {
-      // ignore storage errors
-    }
-  }
-
   const titleize = (value) => {
     if (!value) return ''
     return value
@@ -150,13 +138,6 @@ export default function Learn() {
   }
 
   const normalizeTitle = (value) => titleize(value.replace(/-/g, ' '))
-
-  const getCourseLink = (course) => {
-    if (course.customTopic) {
-      return `/course/${course.slug}?customTopic=${encodeURIComponent(course.customTopic)}`
-    }
-    return `/course/${course.slug}`
-  }
 
   return (
     <div className="min-h-screen bg-white">
@@ -181,12 +162,19 @@ export default function Learn() {
                 className="relative z-20 w-full rounded-2xl border border-slate-200 bg-white px-5 py-4 text-base text-slate-700 outline-none transition focus:border-slate-300"
               />
               <img
-                src={query.trim() ? '/logo-smile.png' : '/logo.png'}
+                src="/logo.png"
                 alt="Big Brain mascot"
-                className={`pointer-events-none absolute -right-5 top-0 z-10 w-32 -translate-y-1/2 object-contain transition-all duration-500 ease-out md:w-40 ${
+                className={`pointer-events-none absolute -right-5 top-0 z-10 w-32 -translate-y-1/2 object-contain transition-opacity duration-300 ease-out md:w-40 ${
+                  query.trim() ? 'opacity-0' : 'opacity-100'
+                }`}
+              />
+              <img
+                src="/logo-smile.png"
+                alt="Big Brain mascot smiling"
+                className={`pointer-events-none absolute -right-5 top-0 z-10 w-32 -translate-y-1/2 object-contain transition-transform duration-500 ease-out md:w-40 ${
                   query.trim()
-                    ? 'rotate-[12deg] -translate-x-1 -translate-y-[70%]'
-                    : 'rotate-[8deg] mascot-lookingup'
+                    ? 'opacity-100 rotate-[12deg] -translate-x-1 -translate-y-[70%]'
+                    : 'opacity-0 rotate-[8deg]'
                 }`}
               />
               {suggestions.length > 0 && (
@@ -217,47 +205,6 @@ export default function Learn() {
             </p>
           </div>
         )}
-
-        <div className="mt-10 space-y-6">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
-              Your Courses
-            </p>
-            <h2 className="mt-2 text-2xl font-semibold text-ink">My courses</h2>
-          </div>
-          {activeCourses.length > 0 ? (
-            <div className="grid gap-4 md:grid-cols-2">
-              {activeCourses.map((course) => (
-                <Link
-                  key={`${course.slug}-${course.customTopic || 'default'}`}
-                  to={getCourseLink(course)}
-                  className="rounded-3xl border border-slate-100 bg-white p-6 transition hover:-translate-y-1 hover:shadow-lift"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
-                        Active
-                      </p>
-                      <h3 className="mt-3 text-lg font-semibold text-ink">
-                        {normalizeTitle(course.title)}
-                      </h3>
-                    </div>
-                    <button
-                      onClick={(event) => handleRemoveCourse(event, course)}
-                      className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-50"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          ) : (
-            <div className="rounded-3xl border border-slate-100 bg-slate-50 p-6 text-sm text-slate-600">
-              You do not have any active courses yet.
-            </div>
-          )}
-        </div>
 
         {(recommendations.length > 0 || query.trim()) && (
           <>
@@ -315,6 +262,16 @@ export default function Learn() {
                   )
                 },
               )}
+            </div>
+
+            <div className="mt-12">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
+                Knowledge graph
+              </p>
+              <h2 className="mt-2 text-2xl font-semibold text-ink">Your learning map</h2>
+              <div className="mt-6">
+                <Graph embedded />
+              </div>
             </div>
           </>
         )}

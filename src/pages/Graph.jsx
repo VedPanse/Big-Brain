@@ -12,7 +12,7 @@ const statusStyles = {
   weak: 'bg-white/40 border-white/40 opacity-70 blur-[0.2px]',
 }
 
-export default function Graph() {
+export default function Graph({ embedded = false }) {
   const navigate = useNavigate()
   const { courseNodes, masteryMap, setCurrentNode, fingerprint } = useLearning()
   const [selected, setSelected] = useState(null)
@@ -45,8 +45,14 @@ export default function Graph() {
     navigate(`/canvas/${node.id}`)
   }
 
+  const containerClass = embedded
+    ? 'relative rounded-3xl border border-slate-100 bg-white/80 p-6 shadow-sm'
+    : 'relative flex min-h-screen flex-col gap-6 px-6 py-10'
+
+  const graphHeightClass = embedded ? 'h-[360px] md:h-[420px]' : 'h-[62vh]'
+
   return (
-    <div className="relative flex min-h-screen flex-col gap-6 px-6 py-10">
+    <div className={containerClass}>
       <div className="flex flex-col gap-2">
         <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Learning graph</p>
         <h2 className="text-3xl font-semibold text-slate-900">Your map of momentum</h2>
@@ -54,7 +60,7 @@ export default function Graph() {
       </div>
 
       <motion.div
-        className="relative h-[62vh] w-full"
+        className={`relative w-full ${graphHeightClass}`}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.5 }}
@@ -117,17 +123,31 @@ export default function Graph() {
         </div>
       </div>
 
-      <div className="fixed bottom-8 right-8 z-30 w-full max-w-sm">
-        <NodePreview
-          node={selected}
-          reason={
-            selected
-              ? `${selected.title} anchors the path from ${selected.prerequisites.length ? 'prerequisites' : 'intuition'} to mastery.`
-              : ''
-          }
-          onOpen={() => selected && handleOpen(selected)}
-        />
-      </div>
+      {embedded ? (
+        <div className="mt-6">
+          <NodePreview
+            node={selected}
+            reason={
+              selected
+                ? `${selected.title} anchors the path from ${selected.prerequisites.length ? 'prerequisites' : 'intuition'} to mastery.`
+                : ''
+            }
+            onOpen={() => selected && handleOpen(selected)}
+          />
+        </div>
+      ) : (
+        <div className="fixed bottom-8 right-8 z-30 w-full max-w-sm">
+          <NodePreview
+            node={selected}
+            reason={
+              selected
+                ? `${selected.title} anchors the path from ${selected.prerequisites.length ? 'prerequisites' : 'intuition'} to mastery.`
+                : ''
+            }
+            onOpen={() => selected && handleOpen(selected)}
+          />
+        </div>
+      )}
     </div>
   )
 }

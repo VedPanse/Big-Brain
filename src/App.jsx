@@ -5,6 +5,7 @@ import Learn from './pages/Learn'
 import Course from './pages/Course'
 import Canvas from './pages/Canvas'
 import Diagnostic from './pages/Diagnostic'
+import MyCourses from './pages/MyCourses'
 
 const pageVariants = {
   initial: { opacity: 0, y: 8 },
@@ -46,6 +47,14 @@ function App() {
             element={
               <PageTransition>
                 <Learn />
+              </PageTransition>
+            }
+          />
+          <Route
+            path="/courses"
+            element={
+              <PageTransition>
+                <MyCourses />
               </PageTransition>
             }
           />

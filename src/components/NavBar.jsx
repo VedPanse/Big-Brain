@@ -3,7 +3,7 @@ import PrimaryButton from './PrimaryButton'
 
 const links = [
   { label: 'Learn', to: '/learn', match: '/learn' },
-  { label: 'Canvas', to: '/canvas/calculus', match: '/canvas' },
+  { label: 'My Courses', to: '/courses', match: '/courses' },
 ]
 
 export default function NavBar() {
