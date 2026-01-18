@@ -4,13 +4,16 @@ import { BrowserRouter } from 'react-router-dom'
 import './index.css'
 import App from './App.jsx'
 import { LearningProvider } from './state/LearningContext.jsx'
+import ErrorBoundary from './components/ErrorBoundary.jsx'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <BrowserRouter>
-      <LearningProvider>
-        <App />
-      </LearningProvider>
+      <ErrorBoundary>
+        <LearningProvider>
+          <App />
+        </LearningProvider>
+      </ErrorBoundary>
     </BrowserRouter>
   </StrictMode>,
 )
