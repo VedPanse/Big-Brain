@@ -147,6 +147,7 @@ export default function Course() {
       const formData = new FormData()
       formData.append('num_questions', '5')
       formData.append('difficulty', 'medium')
+      formData.append('topic', displayTopic || course.title || topic)
 
       const sources = []
       let combinedContext = []
@@ -205,8 +206,6 @@ export default function Course() {
       // If no sources selected, mark it as autonomous generation
       if (sources.length === 0) {
         formData.append('mode', 'autonomous')
-        // Send a generic topic for the backend to generate questions
-        formData.append('topic', 'General Knowledge')
       }
 
       setLoadingMessage('Generating quiz questions...')
@@ -224,7 +223,7 @@ export default function Course() {
       const sourceMetadata = {
         sources: sources.length > 0 ? sources : [],
         sourceCount: sources.length,
-        combinedDescription: sources.length > 0 ? combinedContext.join(' + ') : 'Autonomously generated'
+        combinedDescription: sources.length > 0 ? combinedContext.join(' + ') : `Topic-driven: ${displayTopic || course.title || topic}`,
       }
       
       storeQuizWithSource(sourceType, sourceId, sourceMetadata, quizData)
@@ -234,7 +233,8 @@ export default function Course() {
       setResponses({})
       setShowAnswer(false)
       await fetchHistoryAndReport()
-      setFile(null)
+      setSelectedFiles([])
+      setSelectedVideoIds([])
     } catch (err) {
       setError(err.message)
     } finally {
