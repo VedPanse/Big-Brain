@@ -22,7 +22,8 @@ export default function Graph({ embedded = false, forcePerformanceMode = false }
 
   const handleOpen = (node) => {
     setCurrentNode(node.id)
-    navigate(`/canvas/${node.id}`)
+    // Navigate to the course page for this topic
+    navigate(`/course/${node.id}`)
   }
 
   const containerClass = embedded
@@ -74,11 +75,21 @@ export default function Graph({ embedded = false, forcePerformanceMode = false }
           </div>
         </GlassCard>
         <div className="flex flex-col items-start gap-3">
-          <PrimaryButton onClick={() => handleOpen(recommended.node)} className="w-full">
+          <PrimaryButton 
+            onClick={() => recommended?.node && handleOpen(recommended.node)} 
+            disabled={!recommended?.node}
+            className="w-full"
+          >
             Continue recommended path
           </PrimaryButton>
           <p className="text-sm text-slate-500">
-            Recommended: {recommended?.node.title} • {recommended?.node.time}
+            {recommended?.node ? (
+              <>
+                Recommended: <span className="font-semibold text-slate-700">{recommended.node.title}</span> • {recommended.node.time}
+              </>
+            ) : (
+              'Loading recommendations...'
+            )}
           </p>
         </div>
       </div>
