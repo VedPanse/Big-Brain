@@ -22,6 +22,7 @@ export default function Course() {
   const displayTopic = customTopicName || topic
   
   const course = courseStubs[topic] || courseStubs.calculus
+  const topicLabel = customTopicName || course.title || topic
   const [activeTab, setActiveTab] = useState('Videos')
   const [videos, setVideos] = useState([])
   const [loading, setLoading] = useState(true)
@@ -126,9 +127,12 @@ export default function Course() {
       const formData = new FormData()
       formData.append('num_questions', '5')
       formData.append('difficulty', 'medium')
+      formData.append('topic', topicLabel)
+      formData.append('topic_slug', topic)
 
       const sources = []
       let combinedContext = []
+      let hasSelectedSources = false
 
       // Add documents if selected
       if (selectedFiles.length > 0) {
@@ -141,6 +145,7 @@ export default function Course() {
           })
           combinedContext.push(`Document: ${file.name}`)
         })
+        hasSelectedSources = true
       }
 
       // Add videos if selected
@@ -179,13 +184,24 @@ export default function Course() {
         })
         
         formData.append('video_context', videoContexts.map(v => v.context).join('\n\n---\n\n'))
+        hasSelectedSources = true
+      }
+
+      if (hasSelectedSources) {
+        formData.append('mode', 'resource-constrained')
+        formData.append('instructions', `Stay strictly on topic: ${topicLabel}. Only use the supplied sources when creating questions.`)
       }
 
       // If no sources selected, mark it as autonomous generation
       if (sources.length === 0) {
+        combinedContext.push(`Topic focus: ${topicLabel}`)
+        sources.push({
+          type: 'topic',
+          id: `topic-${topic}`,
+          metadata: { topic: topicLabel },
+        })
         formData.append('mode', 'autonomous')
-        // Send a generic topic for the backend to generate questions
-        formData.append('topic', 'General Knowledge')
+        formData.append('instructions', `Generate questions based only on the topic: ${topicLabel}. Do not invent unrelated subjects.`)
       }
 
       setLoadingMessage('Generating quiz questions...')
@@ -198,12 +214,12 @@ export default function Course() {
       const quizData = await response.json()
       
       // Store quiz with multi-source metadata
-      const sourceType = sources.length === 0 ? 'autonomous' : (sources.length === 1 ? sources[0].type : 'multiple')
-      const sourceId = sources.length === 0 ? `autonomous-${Date.now()}` : (sources.length === 1 ? sources[0].id : `multi-${Date.now()}`)
+      const sourceType = sources.length === 1 ? sources[0].type : 'multiple'
+      const sourceId = sources.length === 1 ? sources[0].id : `multi-${Date.now()}`
       const sourceMetadata = {
         sources: sources.length > 0 ? sources : [],
         sourceCount: sources.length,
-        combinedDescription: sources.length > 0 ? combinedContext.join(' + ') : 'Autonomously generated'
+        combinedDescription: sources.length > 0 ? combinedContext.join(' + ') : `Topic-driven: ${topicLabel}`
       }
       
       storeQuizWithSource(sourceType, sourceId, sourceMetadata, quizData)
@@ -213,7 +229,6 @@ export default function Course() {
       setResponses({})
       setShowAnswer(false)
       await fetchHistoryAndReport()
-      setFile(null)
     } catch (err) {
       setError(err.message)
     } finally {
@@ -267,7 +282,7 @@ export default function Course() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           quizId: quiz.id,
-          topic: topicInput || course.title,
+          topic: topicLabel,
           quiz,
           responses,
         }),
@@ -647,8 +662,13 @@ export default function Course() {
                           {quiz.sourceType === 'autonomous' && '🤖 Autonomously Generated'}
                           {quiz.sourceType === 'document' && '📄 Document'}
                           {quiz.sourceType === 'video' && '🎥 Video'}
+                          {quiz.sourceType === 'topic' && '🤖 Topic-driven'}
                           {' '}
-                          {quiz.sourceType !== 'autonomous' && (quiz.sourceMetadata?.documentName || quiz.sourceMetadata?.videoTitle)}
+                          {quiz.sourceType !== 'autonomous' && (
+                            quiz.sourceMetadata?.documentName ||
+                            quiz.sourceMetadata?.videoTitle ||
+                            quiz.sourceMetadata?.topic
+                          )}
                         </span>
                       )}
                     </div>
@@ -812,6 +832,8 @@ export default function Course() {
                                   </div>
                                 ) : attempt.sourceType === 'autonomous' ? (
                                   <p className="text-xs text-slate-500">🤖 Autonomously generated</p>
+                                ) : attempt.sourceType === 'topic' ? (
+                                  <p className="text-xs text-slate-500">🤖 Topic-driven: {attempt.sourceMetadata?.topic}</p>
                                 ) : (
                                   <p className="text-xs text-slate-500">
                                     {attempt.sourceType === 'document' && `📄 ${attempt.sourceMetadata.documentName}`}
