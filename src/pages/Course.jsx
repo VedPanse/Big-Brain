@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import NavBar from '../components/NavBar'
@@ -9,6 +9,7 @@ import CanvasToolbar from '../components/CanvasToolbar'
 import { courseStubs } from '../data/courseStubs'
 import { useLearning } from '../state/LearningContext'
 import { searchYoutubeVideos, recommendVideos } from '../services/youtubeService'
+import { emitGraphEvent } from '../utils/graphApi'
 
 const tabs = ['Videos', 'Quizzes', 'Canvas']
 
@@ -40,6 +41,7 @@ export default function Course() {
   const [report, setReport] = useState(null)
   const [error, setError] = useState('')
   const [embedError, setEmbedError] = useState(false)
+  const canvasStartRef = useRef(null)
 
   const activeQuestion = quiz?.questions?.[quizIndex]
   const selectedChoice = activeQuestion ? responses[activeQuestion.id]?.value : null
@@ -86,6 +88,16 @@ export default function Course() {
   const handleVideoClick = (videoId) => {
     setActiveVideoId(videoId)
     setEmbedError(false)
+    const video = videos.find((item) => item.id === videoId)
+    const minutesMatch = String(video?.duration || '').match(/(\d+)/)
+    const minutes = minutesMatch ? Number(minutesMatch[1]) : 0
+    if (minutes) {
+      emitGraphEvent('VIDEO_WATCHED', {
+        topicLabel: displayTopic || course.title,
+        conceptLabel: resolveConceptLabel(video?.concept || ''),
+        minutes,
+      })
+    }
   }
 
   const handleToggleSeen = (videoId) => {
@@ -141,6 +153,12 @@ export default function Course() {
       setQuizIndex(0)
       setResponses({})
       setShowAnswer(false)
+      emitGraphEvent('QUIZ_GENERATED', {
+        topicLabel: topicInput || course.title,
+        conceptLabel: resolveConceptLabel(topicInput || ''),
+        numQuestions: quizData.questions?.length || 0,
+        difficulty: 'medium',
+      })
       await fetchHistoryAndReport()
       setFile(null)
     } catch (err) {
@@ -190,6 +208,13 @@ export default function Course() {
       }
       const data = await response.json()
       setResult(data.result)
+      emitGraphEvent('QUIZ_SUBMITTED', {
+        topicLabel: topicInput || course.title,
+        conceptLabel: resolveConceptLabel(topicInput || ''),
+        score: data.result?.correct ?? 0,
+        total: data.result?.total ?? 0,
+        perQuestion: data.result?.perQuestion ?? [],
+      })
       await fetchHistoryAndReport()
     } catch (err) {
       setError(err.message)
@@ -199,6 +224,13 @@ export default function Course() {
   }
 
   const canvasStorageKey = useMemo(() => `canvas-${topic}-embedded`, [topic])
+
+  const resolveConceptLabel = (value) => {
+    if (!value) return ''
+    const normalized = value.trim().toLowerCase()
+    const match = course.concepts?.find((concept) => concept.toLowerCase() === normalized)
+    return match || ''
+  }
 
   useEffect(() => {
     setActiveTab('Videos')
@@ -213,6 +245,40 @@ export default function Course() {
     setFile(null)
     setError('')
   }, [course])
+
+  useEffect(() => {
+    emitGraphEvent('TOPIC_OPENED', { topicLabel: displayTopic || course.title, source: 'course' })
+  }, [displayTopic, course.title])
+
+  useEffect(() => {
+    if (activeTab === 'Canvas') {
+      canvasStartRef.current = Date.now()
+      return
+    }
+    if (canvasStartRef.current) {
+      const minutes = Math.max(1, Math.round((Date.now() - canvasStartRef.current) / 60000))
+      emitGraphEvent('CANVAS_USED', {
+        topicLabel: displayTopic || course.title,
+        conceptLabel: resolveConceptLabel(activeVideo?.concept || ''),
+        minutes,
+      })
+      canvasStartRef.current = null
+    }
+  }, [activeTab, displayTopic, course.title, activeVideo])
+
+  useEffect(
+    () => () => {
+      if (canvasStartRef.current) {
+        const minutes = Math.max(1, Math.round((Date.now() - canvasStartRef.current) / 60000))
+        emitGraphEvent('CANVAS_USED', {
+          topicLabel: displayTopic || course.title,
+          conceptLabel: resolveConceptLabel(activeVideo?.concept || ''),
+          minutes,
+        })
+      }
+    },
+    [displayTopic, course.title, activeVideo],
+  )
 
   useEffect(() => {
     if (activeTab !== 'Quizzes') return

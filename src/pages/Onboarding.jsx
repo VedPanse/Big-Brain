@@ -24,7 +24,7 @@ export default function Onboarding() {
               Start diagnostic
             </PrimaryButton>
             <button
-              onClick={() => navigate('/graph')}
+              onClick={() => navigate('/learn')}
               className="text-sm font-semibold text-slate-400 transition hover:text-slate-600"
             >
               Skip
