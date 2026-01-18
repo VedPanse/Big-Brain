@@ -1,9 +1,11 @@
 import clsx from 'clsx'
-import { Eraser, Highlighter, PenLine, Type, Trash2 } from 'lucide-react'
+import { AlertTriangle, Eraser, Highlighter, PenLine, Type, Trash2, XCircle } from 'lucide-react'
 
 const tools = [
   { id: 'pen', label: 'Pen', icon: PenLine },
   { id: 'highlighter', label: 'Highlighter', icon: Highlighter },
+  { id: 'cross', label: 'Cross-out', icon: XCircle },
+  { id: 'confusion', label: 'Confusion', icon: AlertTriangle },
   { id: 'text', label: 'Text', icon: Type },
   { id: 'eraser', label: 'Eraser', icon: Eraser },
 ]

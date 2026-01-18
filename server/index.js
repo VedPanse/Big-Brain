@@ -4,6 +4,7 @@ import dotenv from 'dotenv'
 import fs from 'fs/promises'
 import path from 'path'
 import crypto from 'crypto'
+import { GoogleGenerativeAI } from '@google/generative-ai'
 import { getDb } from './db.js'
 import { generateQuiz } from './quizGenerator.js'
 import { scoreAttempt } from './scoreAttempt.js'
@@ -21,8 +22,12 @@ const envPath = path.resolve(process.cwd(), '.env')
 dotenv.config({ path: envPath })
 
 const apiKey = process.env.OPENAI_QUIZ_API_KEY
+const geminiKey = process.env.GEMINI_CANVAS_API_KEY
 if (!apiKey) {
   console.warn('Missing OPENAI_QUIZ_API_KEY in .env')
+}
+if (!geminiKey) {
+  console.warn('Missing GEMINI_CANVAS_API_KEY in .env')
 }
 
 const app = express()
@@ -37,8 +42,47 @@ const upload = multer({
 })
 
 const quizzes = new Map()
+const canvasRateMap = new Map()
+const canvasCache = new Map()
+const CANVAS_RATE_WINDOW_MS = 60 * 1000
+const CANVAS_RATE_LIMIT = 8
+const CANVAS_CACHE_TTL_MS = 120 * 1000
 
 app.use(express.json({ limit: '1mb' }))
+
+const normalizeJson = (content) => {
+  const cleaned = content?.replace(/```json|```/g, '').trim()
+  if (!cleaned) throw new Error('Empty model response.')
+  try {
+    return JSON.parse(cleaned)
+  } catch {
+    const match = cleaned.match(/{[\s\S]*}/)
+    if (!match) {
+      throw new Error('Unable to parse JSON from model.')
+    }
+    return JSON.parse(match[0])
+  }
+}
+
+const enforceCanvasRate = (key) => {
+  const now = Date.now()
+  const windowStart = now - CANVAS_RATE_WINDOW_MS
+  const recent = (canvasRateMap.get(key) || []).filter((ts) => ts > windowStart)
+  if (recent.length >= CANVAS_RATE_LIMIT) return false
+  canvasRateMap.set(key, [...recent, now])
+  return true
+}
+
+const makeCanvasCacheKey = (imageBase64, structured) => {
+  try {
+    const hash = crypto.createHash('sha256')
+    hash.update(imageBase64 || '')
+    hash.update(JSON.stringify(structured || {}))
+    return hash.digest('hex')
+  } catch {
+    return null
+  }
+}
 
 app.post('/api/quizzes/generate', upload.single('file'), async (req, res) => {
   const { topic, num_questions, difficulty } = req.body

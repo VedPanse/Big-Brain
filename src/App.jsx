@@ -5,6 +5,7 @@ import Learn from './pages/Learn'
 import Course from './pages/Course'
 import Canvas from './pages/Canvas'
 import Diagnostic from './pages/Diagnostic'
+import NotFound from './pages/NotFound'
 
 const pageVariants = {
   initial: { opacity: 0, y: 8 },
@@ -81,7 +82,14 @@ function App() {
               </PageTransition>
             }
           />
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route
+            path="*"
+            element={
+              <PageTransition>
+                <NotFound />
+              </PageTransition>
+            }
+          />
         </Routes>
       </AnimatePresence>
     </div>
