@@ -7,12 +7,23 @@ const TOOL_CONFIG = {
   eraser: { stroke: '#ffffff', width: 20, opacity: 1, composite: 'destination-out' },
 }
 
+const makeId = (prefix) => {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return `${prefix}-${crypto.randomUUID()}`
+  }
+  return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`
+}
+
 export default function CanvasBoard({
   tool,
+  onChange,
   onStrokeComplete,
   overlays = [],
+  overlayTexts = [],
   onPointerPause,
   onSizeChange,
+  onImageExport,
+  exportSignal,
   storageKey,
   resetSignal,
 }) {
@@ -28,8 +39,14 @@ export default function CanvasBoard({
     if (!storageKey) return
     try {
       const stored = JSON.parse(localStorage.getItem(storageKey))
-      if (stored?.lines) setLines(stored.lines)
-      if (stored?.texts) setTexts(stored.texts)
+      if (stored?.lines) {
+        const normalized = stored.lines.map((line) => (line.id ? line : { ...line, id: makeId('line') }))
+        setLines(normalized)
+      }
+      if (stored?.texts) {
+        const normalized = stored.texts.map((text) => (text.id ? text : { ...text, id: makeId('text') }))
+        setTexts(normalized)
+      }
     } catch {
       // ignore storage errors
     }
@@ -41,6 +58,10 @@ export default function CanvasBoard({
   }, [lines, texts, storageKey])
 
   useEffect(() => {
+    onChange?.({ lines, texts })
+  }, [lines, texts, onChange])
+
+  useEffect(() => {
     if (!resetSignal) return
     setLines([])
     setTexts([])
@@ -49,6 +70,17 @@ export default function CanvasBoard({
   useEffect(() => {
     linesRef.current = lines
   }, [lines])
+
+  useEffect(() => {
+    if (!exportSignal) return
+    if (!stageRef.current) return
+    try {
+      const dataUrl = stageRef.current.toDataURL({ pixelRatio: 0.5 })
+      onImageExport?.(dataUrl)
+    } catch {
+      // ignore export errors
+    }
+  }, [exportSignal, onImageExport])
 
   useEffect(() => {
     if (!containerRef.current) return
@@ -69,7 +101,7 @@ export default function CanvasBoard({
     if (tool === 'text') {
       setTexts((prev) => [
         ...prev,
-        { x: point.x, y: point.y, text: 'Note', id: `text-${prev.length}` },
+        { x: point.x, y: point.y, text: 'Note', id: makeId('text') },
       ])
       onStrokeComplete?.()
       return
@@ -77,6 +109,7 @@ export default function CanvasBoard({
 
     const config = TOOL_CONFIG[tool] || TOOL_CONFIG.pen
     const newLine = {
+      id: makeId('line'),
       tool,
       points: [point.x, point.y],
       stroke: config.stroke,
@@ -127,7 +160,7 @@ export default function CanvasBoard({
         <Layer>
           {lines.map((line, index) => (
             <Line
-              key={`line-${index}`}
+              key={`line-${line.id || index}`}
               points={line.points}
               stroke={line.stroke}
               strokeWidth={line.width}
@@ -149,6 +182,16 @@ export default function CanvasBoard({
               tension={0.3}
               lineCap="round"
               lineJoin="round"
+            />
+          ))}
+          {overlayTexts.map((text, index) => (
+            <Text
+              key={text.id || `overlay-text-${index}`}
+              x={text.x}
+              y={text.y}
+              text={text.text}
+              fontSize={text.fontSize || 14}
+              fill={text.fill || '#1f2937'}
             />
           ))}
           {texts.map((text) => (

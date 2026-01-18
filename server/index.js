@@ -1,3 +1,4 @@
+import './tracing.js'
 import express from 'express'
 import multer from 'multer'
 import dotenv from 'dotenv'
@@ -49,6 +50,7 @@ app.post('/api/quizzes/generate', upload.any(), async (req, res) => {
     await fs.mkdir(tmpDir, { recursive: true })
 
     let sourceText = ''
+    const sourceType = req.body?.sourceType || (files.length ? 'document' : 'topic')
     if (files.length) {
       const chunks = await Promise.all(
         files.map(async (file) => {
@@ -81,6 +83,7 @@ app.post('/api/quizzes/generate', upload.any(), async (req, res) => {
       sourceText,
       numQuestions: Number(num_questions) || 5,
       difficulty: difficulty || 'medium',
+      sourceType,
     })
 
     quizzes.set(quiz.id, quiz)

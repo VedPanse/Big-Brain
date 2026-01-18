@@ -1,18 +1,20 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
+import { RoomEvent } from 'livekit-client'
 import NavBar from '../components/NavBar'
 import PrimaryButton from '../components/PrimaryButton'
 import SecondaryButton from '../components/SecondaryButton'
 import CanvasBoard from '../components/CanvasBoard'
 import CanvasToolbar from '../components/CanvasToolbar'
-import VoiceRoom from '../components/VoiceRoom'
+import LiveKitVoicePanel from '../components/Voice/LiveKitVoicePanel'
 import { courseStubs } from '../data/courseStubs'
 import { topics } from '../data/topics'
 import { useLearning } from '../state/LearningContext'
 import { searchYoutubeVideos, recommendVideos, getVideoTranscript } from '../services/youtubeService'
+import { CANVAS_COMMANDS, isCanvasCommand } from '../shared/canvasCommands'
 
-const tabs = ['Videos', 'Quizzes', 'Canvas', 'Voice']
+const tabs = ['Videos', 'Quizzes', 'Canvas']
 const COURSE_STORAGE_KEY = 'bb-active-courses'
 
 const normalizeCourseKey = (slug, customTopic) => {
@@ -55,6 +57,7 @@ export default function Course() {
   // Check if this is a custom topic from URL params
   const searchParams = new URLSearchParams(window.location.search)
   const customTopicName = searchParams.get('customTopic')
+  const topicEntry = topics.find((item) => item.slug === topic)
   const course = courseStubs[topic] || courseStubs.calculus
   const hasStub = Boolean(courseStubs[topic])
   const resolvedTitle = normalizeCourseTitle(customTopicName, topic, course, hasStub)
@@ -79,6 +82,15 @@ export default function Course() {
   const [loadingMessage, setLoadingMessage] = useState('')
   const [showConfetti, setShowConfetti] = useState(false)
   const [numQuestions, setNumQuestions] = useState(5)
+  const [canvasSnapshot, setCanvasSnapshot] = useState({ lines: [], texts: [] })
+  const [canvasHighlights, setCanvasHighlights] = useState([])
+  const [canvasOverlayTexts, setCanvasOverlayTexts] = useState([])
+  const [canvasExportSignal, setCanvasExportSignal] = useState(0)
+  const sendDataRef = useRef(null)
+  const sendTimerRef = useRef(null)
+  const imageTimerRef = useRef(null)
+  const lastSentAtRef = useRef(0)
+  const lastImageAtRef = useRef(0)
 
   const activeQuestion = quiz?.questions?.[quizIndex]
   const selectedChoice = activeQuestion ? responses[activeQuestion.id]?.value : null
@@ -89,6 +101,183 @@ export default function Course() {
   }
 
   const canvasStorageKey = `canvas-${topic}`
+  const identity = useMemo(() => `course-user-${Date.now()}`, [])
+
+  const downsamplePoints = (points, maxPoints = 200) => {
+    if (!Array.isArray(points) || points.length <= maxPoints * 2) return points
+    const stride = Math.ceil(points.length / (maxPoints * 2))
+    return points.filter((_, index) => index % stride === 0)
+  }
+
+  const exportCanvasState = useCallback(() => {
+    const elements = [
+      ...canvasSnapshot.lines.map((line) => ({
+        id: line.id,
+        type: line.tool === 'eraser' ? 'scribble' : 'line',
+        points: downsamplePoints(line.points || []),
+        color: line.stroke,
+        meta: { width: line.width, opacity: line.opacity, tool: line.tool },
+      })),
+      ...canvasSnapshot.texts.map((text) => ({
+        id: text.id,
+        type: 'text',
+        x: text.x,
+        y: text.y,
+        text: text.text,
+      })),
+    ]
+
+    return {
+      conceptId: topic,
+      viewport: { zoom: 1, panX: 0, panY: 0 },
+      elements,
+      updatedAt: new Date().toISOString(),
+    }
+  }, [canvasSnapshot.lines, canvasSnapshot.texts, topic])
+
+  const sendCanvasState = useCallback(() => {
+    if (!sendDataRef.current) return
+    const payload = { type: 'CANVAS_STATE', ...exportCanvasState() }
+    const bytes = new TextEncoder().encode(JSON.stringify(payload)).length
+    sendDataRef.current('bb.canvas.state', payload)
+    console.log('[CanvasState] sent', { bytes, elements: payload.elements.length })
+    lastSentAtRef.current = Date.now()
+  }, [exportCanvasState])
+
+  const scheduleCanvasSend = useCallback(() => {
+    if (!sendDataRef.current) return
+    const now = Date.now()
+    if (now - lastSentAtRef.current > 280) {
+      sendCanvasState()
+      return
+    }
+    if (sendTimerRef.current) {
+      clearTimeout(sendTimerRef.current)
+    }
+    sendTimerRef.current = setTimeout(sendCanvasState, 280)
+  }, [sendCanvasState])
+
+  const handleCanvasChange = useCallback(
+    (nextState) => {
+      setCanvasSnapshot(nextState)
+      scheduleCanvasSend()
+      const now = Date.now()
+      if (now - lastImageAtRef.current > 1200) {
+        setCanvasExportSignal((value) => value + 1)
+        lastImageAtRef.current = now
+      } else if (!imageTimerRef.current) {
+        imageTimerRef.current = setTimeout(() => {
+          setCanvasExportSignal((value) => value + 1)
+          lastImageAtRef.current = Date.now()
+          imageTimerRef.current = null
+        }, 1200)
+      }
+    },
+    [scheduleCanvasSend],
+  )
+
+  const applyCanvasCommand = useCallback(
+    (command) => {
+      if (!isCanvasCommand(command)) return
+      if (command.op === CANVAS_COMMANDS.CLEAR_HIGHLIGHTS) {
+        setCanvasHighlights([])
+        setCanvasOverlayTexts([])
+        return
+      }
+      if (command.op === CANVAS_COMMANDS.ADD_TEXT) {
+        setCanvasOverlayTexts((prev) => [
+          ...prev,
+          {
+            id: `ta-text-${Date.now()}`,
+            x: command.x ?? 120,
+            y: command.y ?? 120,
+            text: command.text || 'Check this.',
+            fill: command.style?.color || '#111827',
+            fontSize: command.style?.fontSize || 14,
+          },
+        ])
+        return
+      }
+      if (command.op === CANVAS_COMMANDS.HIGHLIGHT) {
+        const color =
+          command.level === 'error'
+            ? '#ef4444'
+            : command.level === 'warn'
+              ? '#f59e0b'
+              : '#2563eb'
+        const targetLine = canvasSnapshot.lines.find((line) => line.id === command.targetId)
+        if (targetLine) {
+          setCanvasHighlights([
+            {
+              points: targetLine.points,
+              stroke: color,
+              width: (targetLine.width || 3) + 6,
+              opacity: 0.9,
+              dash: [10, 6],
+            },
+          ])
+        }
+        console.log('[CanvasCmd] applied', command)
+      }
+    },
+    [canvasSnapshot.lines],
+  )
+
+  const handleRoomConnected = useCallback(
+    (room) => {
+      room.on(RoomEvent.DataReceived, (payload) => {
+        try {
+          const text = new TextDecoder().decode(payload)
+          const message = JSON.parse(text)
+          if (message?.topic !== 'bb.canvas.cmd') return
+          console.log('[CanvasCmd] received', message.payload?.op)
+          applyCanvasCommand(message.payload)
+        } catch (error) {
+          console.warn('[CanvasCmd] parse failed', error)
+        }
+      })
+    },
+    [applyCanvasCommand],
+  )
+
+  const handleSetContext = useCallback(
+    (setter) => {
+      setter({
+        conceptTitle: resolvedTitle || course.title,
+        conceptSummary: topicEntry?.summary || course.subtitle || '',
+        problemPrompt: 'Explain your diagram and reasoning aloud.',
+      })
+    },
+    [course.subtitle, course.title, resolvedTitle, topicEntry?.summary],
+  )
+
+  const handleSendDataReady = useCallback((sender) => {
+    sendDataRef.current = sender
+    sendCanvasState()
+  }, [sendCanvasState])
+
+  useEffect(() => {
+    return () => {
+      if (sendTimerRef.current) {
+        clearTimeout(sendTimerRef.current)
+      }
+      if (imageTimerRef.current) {
+        clearTimeout(imageTimerRef.current)
+      }
+    }
+  }, [])
+
+  const handleCanvasImageExport = useCallback((dataUrl) => {
+    if (!sendDataRef.current || !dataUrl) return
+    const payload = { type: 'CANVAS_IMAGE', dataUrl, conceptId: topic }
+    const bytes = new TextEncoder().encode(JSON.stringify(payload)).length
+    if (bytes > 220000) {
+      console.warn('[CanvasImage] skipped, too large', { bytes })
+      return
+    }
+    sendDataRef.current('bb.canvas.image', payload)
+    console.log('[CanvasImage] sent', { bytes })
+  }, [topic])
 
   // Fetch videos for this topic on mount
   useEffect(() => {
@@ -991,7 +1180,16 @@ export default function Course() {
               </div>
               <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-white">
                 <div className="h-[360px]">
-                  <CanvasBoard tool={tool} storageKey={canvasStorageKey} resetSignal={resetSignal} />
+                  <CanvasBoard
+                    tool={tool}
+                    storageKey={canvasStorageKey}
+                    resetSignal={resetSignal}
+                    overlays={canvasHighlights}
+                    overlayTexts={canvasOverlayTexts}
+                    onChange={handleCanvasChange}
+                    onImageExport={handleCanvasImageExport}
+                    exportSignal={canvasExportSignal}
+                  />
                 </div>
               </div>
               <div className="mt-4 flex items-center justify-between">
@@ -1003,42 +1201,27 @@ export default function Course() {
               </div>
             </div>
             <div className="space-y-6">
-              <div className="rounded-3xl border border-slate-100 bg-cloud p-6">
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Prompts</p>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {course.canvasPrompts.map((prompt) => (
-                    <span
-                      key={prompt}
-                      className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-500"
-                    >
-                      {prompt}
-                    </span>
-                  ))}
-                </div>
-              </div>
               <div className="rounded-3xl border border-slate-100 bg-white p-6">
                 <p className="text-sm font-semibold text-slate-500">Focus tip</p>
                 <p className="mt-3 text-base text-slate-600">
                   Start by drawing the concept, then label what you cannot explain in words.
                 </p>
+                <div className="mt-4">
+                  <LiveKitVoicePanel
+                    roomName={`topic-${topic}-user-demo`}
+                    identity={identity}
+                    mode="TA_OFFICE_HOURS"
+                    conceptId={topic}
+                    onConnected={handleRoomConnected}
+                    sendData={handleSendDataReady}
+                    setContext={handleSetContext}
+                  />
+                </div>
               </div>
             </div>
           </div>
         )}
 
-        {activeTab === 'Voice' && (
-          <div className="mt-12">
-            <div className="space-y-4">
-              <div>
-                <h2 className="text-2xl font-semibold text-ink">Voice Learning Assistant</h2>
-                <p className="mt-2 text-slate-600">
-                  Connect to a voice room and interact with an AI learning assistant. Speak naturally about the topic to get real-time feedback and guidance.
-                </p>
-              </div>
-              <VoiceRoom topicSlug={topic} />
-            </div>
-          </div>
-        )}
       </motion.section>
     </div>
   )
