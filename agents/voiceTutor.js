@@ -144,6 +144,12 @@ export default defineAgent({
       identity: ctx.participant?.identity,
     })
 
+    // Test data channel immediately after connection
+    setTimeout(() => {
+      console.log('[Agent] Sending test transcript message...')
+      sendTranscript('agent', 'Connection established - transcript test message')
+    }, 2000)
+
     const summarizeCanvas = (canvas) => {
       if (!canvas?.elements?.length) return 'Canvas is empty.'
       const elems = canvas.elements.slice(0, 30)
@@ -192,6 +198,37 @@ export default defineAgent({
       }
     }
 
+    const sendTranscript = (speaker, text) => {
+      if (!text) return
+      if (!ctx.room?.localParticipant) {
+        console.warn('[Agent] Cannot send transcript - room not connected')
+        return
+      }
+      console.log('[Agent] Sending transcript:', { 
+        speaker, 
+        textLength: text.length,
+        textPreview: text.substring(0, 100),
+        roomName: ctx.room.name,
+        localParticipantIdentity: ctx.room.localParticipant?.identity,
+        remoteParticipantsCount: ctx.room.remoteParticipants?.size || 0
+      })
+      try {
+        const payload = new TextEncoder().encode(
+          JSON.stringify({
+            topic: 'bb.transcript',
+            payload: { speaker, text },
+          }),
+        )
+        ctx.room.localParticipant.publishData(payload, { 
+          reliable: true,
+          topic: 'bb.transcript'
+        })
+        console.log('[Agent] Transcript published to room')
+      } catch (error) {
+        console.error('[Agent] Failed to send transcript:', error)
+      }
+    }
+
     const updateInstructions = async () => {
       const now = Date.now()
       if (now - state.lastInstructionsAt < 1000) return
@@ -224,6 +261,23 @@ export default defineAgent({
         console.warn('[Agent] updateInstructions failed:', error?.message || error)
       }
     }
+
+    session.on('user_input_transcribed', (ev) => {
+      console.log('[Agent] user_input_transcribed event:', { transcript: ev?.transcript, isFinal: ev?.isFinal })
+      if (!ev?.transcript || !ev.isFinal) return
+      sendTranscript('user', ev.transcript)
+    })
+
+    session.on('conversation_item_added', (ev) => {
+      console.log('[Agent] conversation_item_added event:', { role: ev?.item?.role })
+      const item = ev?.item
+      if (!item || item.role !== 'assistant') return
+      const content = Array.isArray(item.content)
+        ? item.content.map((part) => part.text || '').join(' ')
+        : item.content
+      console.log('[Agent] Sending agent transcript:', { content: content?.substring(0, 100) })
+      sendTranscript('agent', content)
+    })
 
     ctx.room.on('dataReceived', async (payload, participant) => {
       try {

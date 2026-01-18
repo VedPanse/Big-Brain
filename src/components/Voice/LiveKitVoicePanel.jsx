@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { DataPacket_Kind, Room, RoomEvent, Track, createLocalAudioTrack } from 'livekit-client'
 
+const formatLine = (entry) => `${entry.speaker || 'agent'}: ${entry.text}`
+
 export default function LiveKitVoicePanel({
   roomName,
   identity,
@@ -10,9 +12,11 @@ export default function LiveKitVoicePanel({
   onDisconnected,
   sendData,
   setContext,
+  showTranscript = true,
 }) {
   const [status, setStatus] = useState('disconnected')
   const [isMicOn, setIsMicOn] = useState(false)
+  const [transcript, setTranscript] = useState([])
   const [remoteAudioCount, setRemoteAudioCount] = useState(0)
   const [participantCount, setParticipantCount] = useState(0)
   const roomRef = useRef(null)
@@ -48,6 +52,18 @@ export default function LiveKitVoicePanel({
     [conceptId, mode, publishData],
   )
 
+  const handleIncomingData = useCallback((raw) => {
+    console.log('[LiveKitVoicePanel] handleIncomingData called with:', raw)
+    if (!raw) return
+    if (raw.topic === 'bb.transcript' && raw.payload?.text) {
+      console.log('[LiveKitVoicePanel] adding transcript:', raw.payload)
+      setTranscript((prev) => [
+        ...prev.slice(-10),
+        { speaker: raw.payload.speaker || 'agent', text: raw.payload.text },
+      ])
+    }
+  }, [])
+
   const attachTrack = useCallback((track) => {
     if (!audioContainerRef.current) return
     const element = track.attach()
@@ -81,8 +97,32 @@ export default function LiveKitVoicePanel({
       const data = await response.json()
       const room = new Room({ adaptiveStream: true, dynacast: true })
 
+      // Handle data received from any participant
+      room.on(RoomEvent.DataReceived, (payload, participant, kind, topic) => {
+        try {
+          console.log('[LiveKitVoicePanel] DataReceived event fired!', { 
+            participantIdentity: participant?.identity,
+            kind,
+            topic,
+            payloadSize: payload?.byteLength 
+          })
+          const text = new TextDecoder().decode(payload)
+          console.log('[LiveKitVoicePanel] decoded text:', text)
+          const parsed = JSON.parse(text)
+          console.log('[LiveKitVoicePanel] parsed data:', parsed)
+          handleIncomingData(parsed)
+        } catch (error) {
+          console.warn('[LiveKitVoicePanel] data parse failed', error)
+        }
+      })
+
       room
-        .on(RoomEvent.TrackSubscribed, (track) => {
+        .on(RoomEvent.TrackSubscribed, (track, publication, participant) => {
+          console.log('[LiveKitVoicePanel] track subscribed:', {
+            kind: track.kind,
+            participantIdentity: participant?.identity,
+            source: publication?.source
+          })
           if (track.kind === Track.Kind.Audio) {
             attachTrack(track)
             setRemoteAudioCount((count) => count + 1)
@@ -94,11 +134,19 @@ export default function LiveKitVoicePanel({
             setRemoteAudioCount((count) => Math.max(0, count - 1))
           }
         })
-        .on(RoomEvent.ParticipantConnected, () => {
+        .on(RoomEvent.ParticipantConnected, (participant) => {
+          console.log('[LiveKitVoicePanel] participant connected:', {
+            identity: participant?.identity,
+            sid: participant?.sid
+          })
           setParticipantCount(room.participants?.size || 0)
         })
-        .on(RoomEvent.ParticipantDisconnected, () => {
+        .on(RoomEvent.ParticipantDisconnected, (participant) => {
+          console.log('[LiveKitVoicePanel] participant disconnected:', participant?.identity)
           setParticipantCount(room.participants?.size || 0)
+        })
+        .on(RoomEvent.Connected, () => {
+          console.log('[LiveKitVoicePanel] room connected')
         })
         .on(RoomEvent.Disconnected, () => {
           setStatus('disconnected')
@@ -125,6 +173,7 @@ export default function LiveKitVoicePanel({
   }, [
     attachTrack,
     canStart,
+    handleIncomingData,
     identity,
     onConnected,
     onDisconnected,
@@ -213,6 +262,19 @@ export default function LiveKitVoicePanel({
           : 'Waiting for connection...'}
       </div>
 
+      {showTranscript && (
+        <div className="mt-3 max-h-28 overflow-y-auto rounded-xl border border-slate-100 bg-white/70 p-2 text-[11px] text-slate-600">
+          {transcript.length ? (
+            transcript.map((line, index) => (
+              <p key={`${line.text}-${index}`} className="leading-relaxed">
+                {formatLine(line)}
+              </p>
+            ))
+          ) : (
+            <p className="text-slate-400">Transcript will appear here.</p>
+          )}
+        </div>
+      )}
       <div ref={audioContainerRef} />
     </div>
   )
