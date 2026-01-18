@@ -13,6 +13,14 @@ export default function Learn() {
     return topics.filter((topic) => topic.title.toLowerCase().includes(term))
   }, [query])
 
+  const handleKeyPress = (event) => {
+    if (event.key === 'Enter' && query.trim()) {
+      // Navigate to course page with the custom topic as a slug
+      const customSlug = query.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+      window.location.href = `/course/${customSlug}?customTopic=${encodeURIComponent(query.trim())}`
+    }
+  }
+
   return (
     <div className="min-h-screen bg-white">
       <NavBar />
@@ -29,10 +37,19 @@ export default function Learn() {
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search topics (e.g., derivatives, pointers, transformers)"
+            onKeyPress={handleKeyPress}
+            placeholder="Search topics (e.g., derivatives, pointers, transformers) - Press Enter to search any topic"
             className="w-full rounded-2xl border border-slate-200 px-5 py-4 text-base text-slate-700 outline-none transition focus:border-slate-300"
           />
         </div>
+
+        {filtered.length === 0 && query && (
+          <div className="mt-12 rounded-3xl border border-slate-200 bg-slate-50 p-8 text-center">
+            <p className="text-lg text-slate-600">
+              No predefined topics found. Press <kbd className="rounded bg-white px-2 py-1 text-sm font-semibold shadow-sm">Enter</kbd> to search videos for "{query}"
+            </p>
+          </div>
+        )}
 
         <div className="mt-12 grid gap-6 md:grid-cols-3">
           {filtered.map((topic) => (

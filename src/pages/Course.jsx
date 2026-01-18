@@ -15,6 +15,12 @@ const tabs = ['Videos', 'Quizzes', 'Canvas']
 export default function Course() {
   const { topic } = useParams()
   const { markVideoViewed, getViewedVideosForTopic } = useLearning()
+  
+  // Check if this is a custom topic from URL params
+  const searchParams = new URLSearchParams(window.location.search)
+  const customTopicName = searchParams.get('customTopic')
+  const displayTopic = customTopicName || topic
+  
   const course = courseStubs[topic] || courseStubs.calculus
   const [activeTab, setActiveTab] = useState('Videos')
   const [videos, setVideos] = useState([])
@@ -48,7 +54,9 @@ export default function Course() {
     const fetchVideos = async () => {
       setLoading(true)
       try {
-        const fetched = await searchYoutubeVideos(topic, 20)
+        // Use custom topic name if provided, otherwise use slug
+        const searchTerm = customTopicName || topic
+        const fetched = await searchYoutubeVideos(searchTerm, 20)
         setVideos(fetched)
         setActiveVideoId(fetched[0]?.id || null)
       } catch (error) {
@@ -60,7 +68,7 @@ export default function Course() {
     }
 
     fetchVideos()
-  }, [topic])
+  }, [topic, customTopicName])
 
   const activeVideo = useMemo(() => {
     return videos.find((video) => video.id === activeVideoId) || null
@@ -210,9 +218,9 @@ export default function Course() {
           <div>
             <p className="text-sm font-semibold text-slate-400">Course</p>
             <h1 className="mt-3 text-4xl font-semibold tracking-[-0.02em] text-ink md:text-5xl">
-              {course.title}
+              {customTopicName || course.title}
             </h1>
-            <p className="mt-2 text-xl text-ash">{course.subtitle}</p>
+            <p className="mt-2 text-xl text-ash">{customTopicName ? `Videos and resources for ${customTopicName}` : course.subtitle}</p>
           </div>
 
           <div className="flex w-full flex-wrap items-center gap-3">
