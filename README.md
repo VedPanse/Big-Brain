@@ -11,7 +11,7 @@
 Big Brain is not a chatbot tutor.  
 It is a learning operating system that builds a model of how each student thinks, identifies misunderstandings, and adapts the learning path in real time through an interactive canvas.
 
-Instead of simply answering questions, Big Brain actively guides, challenges, and reshapes understanding.
+Instead of passively answering questions, Big Brain **probes, corrects, and reshapes understanding**.
 
 ---
 
@@ -218,4 +218,4 @@ Big Brain was designed with:
 
 Big Brain does not just help you learn.
 
-It understands how you think and teaches accordingly.
+**It understands how you think — and teaches accordingly.**

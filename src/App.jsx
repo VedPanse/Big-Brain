@@ -1,34 +1,82 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
+import { AnimatePresence, motion } from 'framer-motion'
+import Landing from './pages/Landing'
+import Learn from './pages/Learn'
+import Course from './pages/Course'
+import Canvas from './pages/Canvas'
+import Diagnostic from './pages/Diagnostic'
+
+const pageVariants = {
+  initial: { opacity: 0, y: 8 },
+  animate: { opacity: 1, y: 0 },
+  exit: { opacity: 0, y: -6 },
+}
+
+function PageTransition({ children }) {
+  return (
+    <motion.div
+      variants={pageVariants}
+      initial="initial"
+      animate="animate"
+      exit="exit"
+      transition={{ type: 'spring', stiffness: 120, damping: 18 }}
+    >
+      {children}
+    </motion.div>
+  )
+}
 
 function App() {
-  const [count, setCount] = useState(0)
+  const location = useLocation()
 
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
+    <div className="app-shell font-body">
+      <AnimatePresence mode="wait">
+        <Routes location={location} key={location.pathname}>
+          <Route
+            path="/"
+            element={
+              <PageTransition>
+                <Landing />
+              </PageTransition>
+            }
+          />
+          <Route
+            path="/learn"
+            element={
+              <PageTransition>
+                <Learn />
+              </PageTransition>
+            }
+          />
+          <Route
+            path="/course/:topic"
+            element={
+              <PageTransition>
+                <Course />
+              </PageTransition>
+            }
+          />
+          <Route
+            path="/canvas/:topic"
+            element={
+              <PageTransition>
+                <Canvas />
+              </PageTransition>
+            }
+          />
+          <Route
+            path="/diagnostic"
+            element={
+              <PageTransition>
+                <Diagnostic />
+              </PageTransition>
+            }
+          />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </AnimatePresence>
+    </div>
   )
 }
 
