@@ -184,6 +184,8 @@ export default function Course() {
       // If no sources selected, mark it as autonomous generation
       if (sources.length === 0) {
         formData.append('mode', 'autonomous')
+        // Send a generic topic for the backend to generate questions
+        formData.append('topic', 'General Knowledge')
       }
 
       setLoadingMessage('Generating quiz questions...')
