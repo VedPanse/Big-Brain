@@ -130,13 +130,6 @@ export default function Course() {
       const sources = []
       let combinedContext = []
 
-      // Add topic if selected
-      if (includeTopic && topicInput) {
-        formData.append('topic', topicInput)
-        sources.push({ type: 'topic', id: topicInput, metadata: { topic: topicInput } })
-        combinedContext.push(`Topic: ${topicInput}`)
-      }
-
       // Add documents if selected
       if (selectedFiles.length > 0) {
         selectedFiles.forEach((file, index) => {
