@@ -551,7 +551,7 @@ export default function Course() {
                 <div className="space-y-4">
                   <p className="text-sm font-semibold text-slate-500">Select quiz sources</p>
                   
-                  {/* Topic Section */}
+                  {/* AI Generated Section */}
                   <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                     <label className="flex items-center gap-3">
                       <input
@@ -560,14 +560,14 @@ export default function Course() {
                         onChange={(e) => setIncludeTopic(e.target.checked)}
                         className="h-4 w-4 rounded border-slate-300"
                       />
-                      <span className="text-sm font-semibold text-slate-700">📚 Topic</span>
+                      <span className="text-sm font-semibold text-slate-700">🤖 AI Generated Questions</span>
                     </label>
                     {includeTopic && (
                       <input
                         value={topicInput}
                         onChange={(event) => setTopicInput(event.target.value)}
                         className="mt-3 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-600"
-                        placeholder="Enter topic name"
+                        placeholder="Enter topic or context (optional)"
                       />
                     )}
                   </div>
@@ -670,7 +670,7 @@ export default function Course() {
                       {quiz.sourceType === 'multiple' ? (
                         quiz.sourceMetadata?.sources?.map((source, idx) => (
                           <span key={idx} className="inline-flex items-center rounded-full bg-blue-100 px-3 py-1 text-sm font-semibold text-blue-700">
-                            {source.type === 'topic' && '📚'}
+                            {source.type === 'topic' && '🤖'}
                             {source.type === 'document' && '📄'}
                             {source.type === 'video' && '🎥'}
                             {' '}
@@ -679,7 +679,7 @@ export default function Course() {
                         ))
                       ) : (
                         <span className="inline-flex items-center rounded-full bg-blue-100 px-3 py-1 text-sm font-semibold text-blue-700">
-                          {quiz.sourceType === 'topic' && '📚 Topic'}
+                          {quiz.sourceType === 'topic' && '🤖 AI Generated'}
                           {quiz.sourceType === 'document' && '📄 Document'}
                           {quiz.sourceType === 'video' && '🎥 Video'}
                           {' '}
@@ -813,7 +813,7 @@ export default function Course() {
                             <div className="flex items-center gap-2">
                               {attempt.sourceType && (
                                 <span className="inline-flex items-center rounded-full bg-blue-100 px-2 py-1 text-xs font-semibold text-blue-700">
-                                  {attempt.sourceType === 'topic' && '📚'}
+                                  {attempt.sourceType === 'topic' && '🤖'}
                                   {attempt.sourceType === 'document' && '📄'}
                                   {attempt.sourceType === 'video' && '🎥'}
                                   {attempt.sourceType === 'multiple' && '📦'}
@@ -834,7 +834,7 @@ export default function Course() {
                                     <div className="flex flex-wrap gap-1">
                                       {attempt.sourceMetadata.sources.map((source, idx) => (
                                         <span key={idx} className="inline-flex items-center gap-1 rounded-md bg-slate-200 px-2 py-0.5 text-xs text-slate-700">
-                                          {source.type === 'topic' && '📚'}
+                                          {source.type === 'topic' && '🤖'}
                                           {source.type === 'document' && '📄'}
                                           {source.type === 'video' && '🎥'}
                                           <span className="max-w-[150px] truncate">
@@ -848,7 +848,7 @@ export default function Course() {
                                   <p className="text-xs text-slate-500">
                                     {attempt.sourceType === 'document' && `📄 ${attempt.sourceMetadata.documentName}`}
                                     {attempt.sourceType === 'video' && `🎥 ${attempt.sourceMetadata.videoTitle}`}
-                                    {attempt.sourceType === 'topic' && `📚 ${attempt.sourceMetadata.topic}`}
+                                    {attempt.sourceType === 'topic' && `🤖 ${attempt.sourceMetadata.topic}`}
                                   </p>
                                 )}
                               </div>
